@@ -18,7 +18,7 @@
 # full health and no death.
 profile: prod
 prompt: >-
-  Run bot.provision() at the base: build or use a furnace near the house, turn wheat into bread and cook any
+  Stock up on food at the base: use the furnace near the house or build one, turn wheat into bread and cook any
   meat or potatoes you have, hunting a couple of animals nearby if you are short. End carrying at least 8
   cooked food items (bread counts) and eat up to full health.
 inventory: {bread: 6, wheat: 2, beetroot: 1, wheat_seeds: 38, spruce_log: 3, stone_sword: 1, stone_pickaxe: 1,

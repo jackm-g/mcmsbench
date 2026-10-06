@@ -65,7 +65,7 @@ class Task:
                                                          # `run` may be a list, `when` an RCON test that holds it (and all after it)
     check: dict | bool | None = None             # the task's own check, as a live milestone carries one (checks.py shape);
                                                  # None: what the grader implies (from_grader); False: no task check (a
-                                                 # grader that tests the harness, not the model: bed_first)
+                                                 # grader on something the task does not ask for)
     own: list[str] = field(default_factory=list)         # boxes "x0 y0 z0 x1 y1 z1" (templated) of setup blocks that are the bot's own
                                                          # build, as live's Built registry knows its base: the guard lets it change them
     curfew: bool | None = None     # the harness shelters the bot at night; None = on when the day/night cycle runs (agent/curfew.py)

@@ -1,5 +1,7 @@
 """The bench's own seams: no agent imported, the goal file, task versions, capability caveats, slots."""
 import ast
+import dataclasses
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +33,14 @@ def test_no_task_carries_agent_notes():
         assert "## Notes" not in t.prompt, tid
 
 
+def test_no_task_prompt_names_an_agents_api():
+    """A prompt is what a player would say: no `bot.survey()`, no `secure_night()`. An agent's API hints go in its
+    own repo (blarvis: evals/notes/<task>.md)."""
+    api = re.compile(r"\bbot\.\w|\b[A-Za-z_]\w*\(")
+    bad = {tid: api.findall(t.prompt) for tid, t in load_all().items() if api.search(t.prompt)}
+    assert not bad, bad
+
+
 def goal_for(tid: str, trial: int = 0) -> dict:
     s = config.load()
     t = load(tid)
@@ -60,9 +70,12 @@ def test_the_goal_carries_what_an_agent_harness_may_use():
     assert g["world"]["keep_inventory"] is False
 
 
-def test_a_task_that_tests_the_harness_has_no_check():
-    t = load("bed_first")
-    assert t.check is False and goal_for("bed_first")["check"] is None
+def test_check_false_leaves_the_goal_without_a_check(monkeypatch):
+    """`check: false` (a grader on something the task does not ask for) sends no check. No bench task uses it now
+    (bed_first, which graded the harness's bed errand, went back to blarvis), so a stand-in has it."""
+    t = dataclasses.replace(load("gather_wood"), check=False)
+    monkeypatch.setitem(globals(), "load", lambda tid: t)
+    assert goal_for("gather_wood")["check"] is None
 
 
 def test_task_hash_follows_the_profile(monkeypatch, tmp_path):
