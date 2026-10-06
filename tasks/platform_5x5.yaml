@@ -1,0 +1,9 @@
+prompt: >-
+  Build a flat 5x5 platform of cobblestone on the ground. Its corner with the
+  smallest x and z is at x={ax}, y={ay}, z={az}; it extends toward +x and +z.
+  The platform is exactly one block thick and sits on the ground. Place nothing else.
+anchor: [12, 0, 12]
+inventory: {cobblestone: 64}
+grader: {kind: exact, shape: platform, size: [5, 5], block: cobblestone, at: [12, 0, 12]}
+max_turns: 8
+tags: [tier-a, building]

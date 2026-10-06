@@ -1,0 +1,41 @@
+# The live server's commonest death, 2026-09-23..25: a respawn at the world spawn with nothing, into the mobs
+# that killed the bot there last time. 32 of 57 deaths were within 40 blocks of the world spawn, and nine
+# were a second death within about two minutes of the first (005537, 125710, 160310, 164001/164122, 230822,
+# 023625). It was often raining, so the undead did not burn at sunrise: 10 deaths came between MC time 487
+# and 4581.
+#
+# The bot wakes at the world spawn at dawn in the rain, empty-handed (prod: no bed, a Hard world, 16 blocks
+# of spawn protection where nothing can be dug), with two zombies and a stray spread around it. The task is
+# the kind the next Discord message brought (165946: "at the site (84, 76, 158) gather at least 8 logs"):
+# wood, then the stone pad 90 blocks east that stands in for the site. Passing takes getting out of the nest
+# without dying: no deaths, the logs, and standing on the pad.
+profile: prod
+prompt: >-
+  You just respawned at the world spawn with nothing. Gather at least 8 logs of any wood and bring them to
+  the site: the stone pad at ({sx+90}, {sy-1}, {sz}). Finish standing on the pad with the logs in your inventory.
+inventory: {}
+start: {time: 300, weather: rain}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the site: a 5x5 stone pad at the spawn's height, cleared above, on a stone plinth down to the ground (the
+  # land there is ~5 lower: a Sonnet 5 run scanned y 60..66 for a pad floating at 69 and reported none)
+  - "fill {sx+88} {sy-12} {sz-2} {sx+92} {sy-2} {sz+2} minecraft:stone replace air"
+  - "fill {sx+88} {sy-1} {sz-2} {sx+92} {sy-1} {sz+2} minecraft:stone"
+  - "fill {sx+88} {sy} {sz-2} {sx+92} {sy+2} {sz+2} minecraft:air"
+  # the nest: summoned over the bot and spread onto the ground 4..12 blocks around the spawn, inside the zone
+  - "summon minecraft:zombie {sx} {sy+1} {sz} {{Tags:[\"nest\"],PersistenceRequired:1b}}"
+  - "summon minecraft:zombie {sx} {sy+1} {sz} {{Tags:[\"nest\"],PersistenceRequired:1b}}"
+  - "summon minecraft:stray {sx} {sy+1} {sz} {{Tags:[\"nest\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx} {sz} 4 12 false @e[tag=nest]"
+grader:
+  kind: milestones
+  required: [alive, logs, on_site]
+  steps:
+    - {name: away,    weight: 1, check: {kind: position, target_rel: [90, 0], tolerance: 60, y_tolerance: 400}}   # 30+ east: out of the nest
+    - {name: alive,   weight: 4, hold: true, check: {kind: survived}}
+    - {name: logs,    weight: 2, check: {kind: inventory, item: "*_log", count: 8}}
+    - {name: on_site, weight: 2, hold: true, check: {kind: position, target_rel: [90, 0], tolerance: 4, y_tolerance: 3}}
+max_turns: 16
+max_seconds: 600
+exec_timeout: 240
+tags: [tier-c, survival, prod, death, spawn]

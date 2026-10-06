@@ -1,0 +1,21 @@
+prompt: >-
+  You slipped into a flooded pit and sank to the bottom. Base is on the ground at x={sx}, z={sz}.
+  Do not drown: get up out of the water and the pit, then go stand on base (within 3 blocks).
+inventory: {}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: water_pit, depth: 3, lip: 2, width: 3, distance: 40, random_radius: 8, time: day}
+stats: [deaths, damage_taken, "mined:dirt"]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: climbed_out, weight: 1, check: {kind: stat, name: "mined:dirt", min: 1}}
+    - {name: arrived,     weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,       weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 420
+exec_timeout: 200
+tags: [tier-c, survival, orientation, situation]
+# The live bot's water traps (2026-09-24..27): a farm pond, a river hole, an aquifer, all with banks above the water
+# and no beach. No movement profile on purpose: the default does not dig, so the way out must come from surface()
+# cutting a step into the bank (facade.js swimMoves), not from the profile.

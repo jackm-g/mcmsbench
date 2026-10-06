@@ -1,0 +1,67 @@
+# A tower at a site that is not empty. The bot starts 40 blocks west of the site with the cobblestone for an 8x8 tower
+# five tall, a door, a bed, 32 torches, chainmail and an iron sword, and no shield. At the site a zombie (a helmet keeps
+# it from burning by day) and a creeper wait. The bot may run, shelter, or fight; what is graded is the tower, the bed
+# in it holding the respawn point (by day a click on the bed sets it), and no death at all. Hard, as on the live server.
+#
+# The world is carved over seed 1 (128 across, the border at its edge): flat grass, the site at the centre, with
+# what replaces a loss within reach: a stand of oaks 20..30 south, three sheep 18 north, and a stone outcrop 20 north
+# of the start showing coal and four iron ore (a shield is one iron and six planks; iron armour more). The day is held.
+prompt: >-
+  Go to x={sx}, z={sz} (about 40 blocks east of you) and build a stone tower there: 8x8 on the outside, 5 blocks
+  tall, enclosed and roofed, with a way in. Then put a bed inside it and set your respawn point on that bed (sleep in
+  it, or by day just use it). You carry the cobblestone, a door, a bed and 32 torches. A zombie and a creeper are at
+  the site. Do not die even once: run, shelter, or fight them, as you judge best. Oaks, sheep, stone and iron are
+  nearby if you need to replace anything.
+inventory: {cobblestone: 256, oak_door: 1, white_bed: 1, torch: 32, iron_sword: 1, bread: 8}
+world:
+  type: survival
+  seeds: [1]
+  radius: 64                # the plot is the whole world, centred on the site
+  border: 128
+  difficulty: hard
+start: {time: day, weather: clear}
+spawn_first: false          # the bed is the task's: the harness must not set the respawn point first
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the land: 128 x 128, flat grass over dirt over stone
+  - "fill {sx-64} {sy} {sz-64} {sx+63} {sy+40} {sz+63} minecraft:air"
+  - "fill {sx-64} {sy-30} {sz-64} {sx+63} {sy-5} {sz+63} minecraft:stone"
+  - "fill {sx-64} {sy-4} {sz-64} {sx+63} {sy-2} {sz+63} minecraft:dirt"
+  - "fill {sx-64} {sy-1} {sz-64} {sx+63} {sy-1} {sz+63} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,distance=..200,x={sx},y={sy},z={sz}]"
+  # the bot: 40 west of the site, in chainmail
+  - "tp {bot} {sx-40} {sy} {sz}"
+  - "item replace entity {bot} armor.head with minecraft:chainmail_helmet"
+  - "item replace entity {bot} armor.chest with minecraft:chainmail_chestplate"
+  - "item replace entity {bot} armor.legs with minecraft:chainmail_leggings"
+  - "item replace entity {bot} armor.feet with minecraft:chainmail_boots"
+  # what replaces a loss: oaks south of the site, sheep north of it, an outcrop with coal and iron north of the start
+  - "place feature minecraft:oak {sx-6} {sy} {sz+22}"
+  - "place feature minecraft:oak {sx} {sy} {sz+26}"
+  - "place feature minecraft:oak {sx+6} {sy} {sz+21}"
+  - "place feature minecraft:oak {sx-12} {sy} {sz+28}"
+  - "place feature minecraft:oak {sx+12} {sy} {sz+27}"
+  - "summon minecraft:sheep {sx-3} {sy} {sz-18} {{Color:0b,PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy} {sz-19} {{Color:0b,PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx+3} {sy} {sz-18} {{Color:0b,PersistenceRequired:1b}}"
+  - "fill {sx-44} {sy} {sz-24} {sx-36} {sy+2} {sz-18} minecraft:stone"
+  - "fill {sx-44} {sy} {sz-18} {sx-43} {sy+1} {sz-18} minecraft:coal_ore"
+  - "fill {sx-39} {sy} {sz-18} {sx-38} {sy+1} {sz-18} minecraft:iron_ore"
+  # the threat at the site
+  - "summon minecraft:zombie {sx+2} {sy} {sz+1} {{PersistenceRequired:1b,Tags:[\"site\"],equipment:{{head:{{id:\"minecraft:leather_helmet\",count:1}}}}}}"
+  - "summon minecraft:creeper {sx-2} {sy} {sz-2} {{PersistenceRequired:1b,Tags:[\"site\"]}}"
+stats: [deaths, damage_taken, kills, "killed:zombie", "killed:creeper"]
+grader:
+  kind: milestones
+  required: [tower, home_spawn, alive]
+  steps:
+    - {name: arrived, weight: 1, check: {kind: position, target_abs: spawn, tolerance: 10, y_tolerance: 6}}
+    - name: tower
+      weight: 4
+      check: {kind: structure, min_side: 8, max_side: 8, min_height: 5, within: 12, min_interior: 16, materials: [cobblestone, stone]}
+    - {name: home_spawn, weight: 3, check: {kind: respawn, inside: true}}
+    - {name: alive, weight: 2, hold: true, check: {kind: survived}}
+max_turns: 60
+max_seconds: 1200
+scripted: false             # no reference solutions (evals/scripted)
+tags: [tier-b, survival, combat, building, bed]

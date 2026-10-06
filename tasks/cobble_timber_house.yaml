@@ -1,0 +1,52 @@
+# A two-story house from (almost) nothing, to a spec: exactly 7x7 outside, a cobblestone ground floor, a wooden upper floor, a
+# real staircase of stair blocks inside between them, and the top floor shut all round (no door, no window gap, no
+# hole: the only way off it is down the stairs). Then the walk that proves it: up to the top floor once it is finished,
+# and back out of the house on foot, by the stairs and the ground floor's door.
+#
+# Seed 1's terrain (survival_house's): mixed woods within 40 blocks, stone under the ground everywhere, the flat beach
+# to the west. The bot starts with half the cobblestone the reference build uses (100: 70 in the ground floor's walls,
+# 24 in the upstairs floor's rim, 6 under the stairs): seed 1's ground is half andesite and diorite, and a quarry pit
+# there gives ~50 cobblestone in ~5 minutes, so the full amount from the ground was a quarter of an hour of digging. The clock is stopped at noon (the arena never advances time unless `daylight`), so there is no night.
+#
+# What it tests beyond survival_house: a material per story (story_walls), a staircase the grader walks up stair by
+# stair with the headroom and facing a player needs (stories `stairs: true`, `indoor: true`), and leaving the top
+# floor without the pathfinder's habit of breaking a wall of its own build when that is the short way out
+# (exit_route: from the frames, the position track, and the bot's own record of every block it broke).
+prompt: >-
+  Build a two-story house near where you are standing, within about 30 blocks. You start with 50 cobblestone and
+  nothing else: gather and craft the rest yourself. The house is exactly 7x7 on the outside (its walls stand on a 7x7 square, and nothing sticks
+  out past them). The ground floor's walls are cobblestone; the second floor's walls are wood (planks or logs, any
+  kind). Inside, a staircase of stair blocks takes a player from the ground floor up to the second floor on foot,
+  without jumping. The ground floor has a door or doorway; the second floor's walls have no opening of any kind, and
+  there is a roof over it. When the house is finished, go up the stairs to the second floor, then walk out of the
+  house — down the stairs and out the ground-floor door — and finish standing outside. Do not break through any wall
+  to get out.
+inventory: {cobblestone: 50}       # half the reference build's 100
+world: {type: survival, seeds: [1]}
+start: {time: noon, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+grader:
+  kind: milestones
+  required: [shell, staircase, stone_walls, wood_walls, walked_out]
+  steps:
+    - {name: wood,        weight: 1, check: {kind: inventory, item: ["*_log", "*_planks"], count: 16}}
+    - {name: pickaxe,     weight: 1, check: {kind: inventory, item: "*_pickaxe", count: 1}}
+    - {name: cobblestone, weight: 1, check: {kind: have_or_placed, item: cobblestone, count: 90}}   # more than it started with
+    - name: shell
+      weight: 3
+      check: {kind: structure, min_footprint: 49, min_side: 7, max_side: 7, min_interior: 24, min_placed: 150, contained: false}
+    - name: staircase
+      weight: 3
+      check: {kind: stories, count: 2, min_area: 12, connected: true, stairs: true, indoor: true}
+    - name: stone_walls
+      weight: 2
+      check: {kind: story_walls, min_area: 12, min_fraction: 0.9, materials: {1: ["cobblestone*", "mossy_cobblestone*"]}}
+    - name: wood_walls
+      weight: 2
+      check: {kind: story_walls, min_area: 12, min_fraction: 0.9, materials: {2: wood}, sealed: [2]}
+    - {name: door,        weight: 1, check: {kind: furnishings, items: [{name: door, item: "*_door", in_shell: true}]}}
+    - {name: walked_out,  weight: 3, check: {kind: exit_route, min_area: 12}}
+max_turns: 60
+max_seconds: 3600
+exec_timeout: 300
+tags: [tier-d, survival, building, composite, stairs]

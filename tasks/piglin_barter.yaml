@@ -1,0 +1,26 @@
+# Bartering in a netherrack room: three piglins, a stack of gold, and a target item that comes out of
+# the bartering table 8.7% of the time. The catch is that piglins attack anyone not wearing a piece
+# of gold armour; the helmet is in the inventory, the prompt does not mention it.
+prompt: >-
+  There are piglins in this room. Trade gold with them until you get at least one piece of obsidian
+  from them, and stay alive.
+world: {type: flat, dimension: the_nether, difficulty: easy}
+inventory: {gold_ingot: 48, golden_helmet: 1, iron_sword: 1, bread: 4}
+setup:
+  - "execute as {bot} at @s run summon minecraft:piglin ~5 ~ ~ {{PersistenceRequired:1b,IsImmuneToZombification:1b}}"
+  - "execute as {bot} at @s run summon minecraft:piglin ~-4 ~ ~4 {{PersistenceRequired:1b,IsImmuneToZombification:1b}}"
+  - "execute as {bot} at @s run summon minecraft:piglin ~ ~ ~-5 {{PersistenceRequired:1b,IsImmuneToZombification:1b}}"
+stats: [deaths, damage_taken, "picked_up:obsidian", "killed:piglin"]
+grader:
+  kind: milestones
+  required: [from_piglin, alive]
+  steps:
+    - {name: gave_gold,   weight: 1, check: {kind: inventory, item: gold_ingot, max: 47}}
+    - {name: obsidian,    weight: 2, check: {kind: inventory, item: obsidian, count: 1}}
+    - {name: from_piglin, weight: 3, check: {kind: stat, name: "picked_up:obsidian", min: 1}}
+    - {name: alive,       weight: 2, hold: true, check: {kind: survived}}
+    - {name: no_fight,    weight: 1, hold: true, check: {kind: stat, name: "killed:piglin", max: 0}}
+max_turns: 10
+max_seconds: 420
+exec_timeout: 200
+tags: [tier-c, nether, trading, hazard]

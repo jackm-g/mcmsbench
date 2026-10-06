@@ -1,0 +1,33 @@
+# The night of 2026-09-23 in miniature: the bot dies mid-task and respawns far from the site with
+# nothing (its respawn point was set 90 blocks east by `setup:`; a timed `kill` fires 20 s in). The
+# work is a 5x5 platform: what is tested is whether it gets back to the site, recovers the drops
+# before they despawn, and finishes — instead of carrying on wherever it woke up. The harness walks
+# it back by itself after a far respawn (agent/loop.py); recovering the drops and finishing is the
+# agent's. Peaceful and daytime so the only hazard is the one the event delivers.
+prompt: >-
+  Build a 5x5 cobblestone platform on the ground whose min corner is at x={sx}, z={sz} (at your
+  feet level, y={sy}), clearing any grass, leaves or logs in the way, and finish standing on it.
+  Use the 25 cobblestone you carry.
+inventory: {cobblestone: 25}
+world: {type: survival, seeds: [1], border: 300}
+start: {time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt]}
+setup:
+  - "fill {sx+88} {sy-1} {sz-2} {sx+92} {sy-1} {sz+2} minecraft:stone"
+  - "fill {sx+88} {sy} {sz-2} {sx+92} {sy+2} {sz+2} minecraft:air"
+  - "spawnpoint {bot} {sx+90} {sy} {sz}"
+events:
+  - {at: 20, run: "kill {bot}"}
+stats: [deaths, damage_taken, walked]
+grader:
+  kind: milestones
+  required: platform
+  steps:
+    - {name: died,     weight: 1, must: true, check: {kind: stat, name: deaths, min: 1}}
+    - {name: back,     weight: 2, hold: true, check: {kind: position, target_abs: spawn, tolerance: 12, y_tolerance: 6}}
+    - {name: platform, weight: 5, check: {kind: blocks, block: cobblestone, min: 25}}
+    - {name: on_it,    weight: 1, hold: true, check: {kind: position, target_abs: spawn, tolerance: 4, y_tolerance: 3}}
+max_turns: 10
+max_seconds: 480
+exec_timeout: 240
+tags: [tier-c, survival, death, recovery]

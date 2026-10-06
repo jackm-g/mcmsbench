@@ -1,0 +1,33 @@
+prompt: >-
+  Make a lever-operated iron door: place an iron door on the ground at x={ax}, y={ay}, z={az} and a
+  lever on a block next to it such that flipping the lever opens the door and flipping it back
+  closes it. Iron doors only open with redstone power; a lever attached to a solid block powers
+  that block, and a door next to a powered block opens. Test it with bot.use_block on the lever
+  and bot.block_state on the door before you finish.
+anchor: [14, 0, 14]
+inventory: {iron_door: 1, lever: 2, cobblestone: 8, redstone: 8}
+grader:
+  kind: milestones
+  required: works
+  steps:
+    - {name: door,  weight: 1, check: {kind: have_or_placed, item: iron_door}}
+    - {name: lever, weight: 1, check: {kind: have_or_placed, item: lever}}
+    - name: works
+      weight: 4
+      check:
+        kind: functional
+        steps:
+          - {assert: "execute if block {ax} {ay} {az} minecraft:iron_door"}
+          # a flip by setblock updates the lever's neighbours only; the poke gives the door the update a player's
+          # flip would, for a lever on a block beside the door (the layout the notes recommend)
+          - {do: "setblock {find:lever} {state:lever|powered=true}"}
+          - {poke: "{ax} {ay} {az}"}
+          - {wait: 0.5}
+          - {assert: "execute if block {ax} {ay} {az} minecraft:iron_door[open=true]"}
+          - {do: "setblock {find:lever} {state:lever|powered=false}"}
+          - {poke: "{ax} {ay} {az}"}
+          - {wait: 0.5}
+          - {assert: "execute if block {ax} {ay} {az} minecraft:iron_door[open=false]"}
+max_turns: 8
+max_seconds: 300
+tags: [tier-c, mechanical, redstone]

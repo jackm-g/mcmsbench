@@ -1,0 +1,11 @@
+# Budgeting: 100 planks. A 6x6 with 3-high walls fits (94) but is too small; a 7x7 with 2-high walls
+# (95) is the biggest enclosed room that fits. Starting big and running out leaves an open shell.
+prompt: >-
+  Build the biggest house you can with what you have: one room with four walls, a roof and a door, tall
+  enough to walk around in. Use your planks wisely — do not run out with the roof half done.
+anchor: [8, 0, 8]
+inventory: {oak_planks: 100, oak_door: 1}
+grader: {kind: structure, min_footprint: 42, min_interior: 20, materials: [oak_planks]}
+max_turns: 10
+max_seconds: 420
+tags: [tier-d, building, planning]

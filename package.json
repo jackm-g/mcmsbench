@@ -1,0 +1,9 @@
+{
+  "name": "mcmsbench-observer",
+  "private": true,
+  "description": "The bench's observer and stand-in client (src/mcmsbench/observer/observer.js)",
+  "dependencies": {
+    "mineflayer": "^4.39.0",
+    "vec3": "^0.2.0"
+  }
+}

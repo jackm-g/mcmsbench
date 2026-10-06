@@ -1,0 +1,20 @@
+prompt: >-
+  You wake up somewhere dark and do not know where you are. Base is on the ground at x={sx}, z={sz}.
+  Work out your situation, get back to the surface, and go stand on base (within 3 blocks).
+inventory: {stone_pickaxe: 1, torch: 8}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: cave, depth: 14, distance: 110, bearing: 135, random_radius: 16, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, "mined:stone"]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: dug_out, weight: 1, check: {kind: stat, name: "mined:stone", min: 4}}
+    - {name: close,   weight: 1, check: {kind: position, target_abs: spawn, tolerance: 40, y_tolerance: 400}}
+    - {name: arrived, weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,   weight: 1, hold: true, check: {kind: survived}}
+max_turns: 10
+max_seconds: 480
+exec_timeout: 200
+tags: [tier-c, survival, orientation, situation]

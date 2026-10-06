@@ -1,0 +1,18 @@
+prompt: >-
+  You have just logged back in and are not where you last remember. Your base marker is at
+  x={sx}, y={sy}, z={sz}. Figure out where you are, then walk to the base marker and stand on
+  it (within 2 blocks). Do not build anything.
+inventory: {}
+world: {type: survival, seeds: [1]}
+start: {random_radius: 28, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, walked, damage_taken]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: arrived,  weight: 3, check: {kind: position, target_abs: spawn, tolerance: 2.0, y_tolerance: 3}}
+    - {name: unharmed, weight: 1, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 600
+tags: [tier-b, survival, orientation, navigation]

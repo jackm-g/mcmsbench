@@ -1,0 +1,10 @@
+prompt: >-
+  Build the four walls of a 5x5 box out of cobblestone, 3 blocks tall, on the ground.
+  The corner with the smallest x and z is at x={ax}, y={ay}, z={az}; the box extends
+  toward +x and +z. Walls only: leave the inside empty and do not build a floor or a
+  roof. Place nothing else.
+anchor: [12, 0, 12]
+inventory: {cobblestone: 64}
+grader: {kind: exact, shape: hollow_box, size: [5, 5], height: 3, block: cobblestone, at: [12, 0, 12]}
+max_turns: 10
+tags: [tier-a, building]

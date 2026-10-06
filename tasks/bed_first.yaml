@@ -1,0 +1,29 @@
+# No bot on the live server ever had a bed spawn (2026-09-23), so every death went back to the mob nest at the
+# world spawn. With spawn_first the harness runs bot.establish_spawn() before the task: sheep for wool, planks
+# from a tree, a bed, set_spawn — on its own clock. The task itself is trivial; the bed placed is the pass.
+prompt: >-
+  Gather 4 logs of any kind of wood and keep them in your inventory. That is all.
+inventory: {}
+world: {type: survival, seeds: [1]}
+start: {time: day}
+spawn_first: true
+# the bed is the harness's errand, not the model's task: a check read off the grader would send the model to place one
+check: false
+setup:
+  - "summon minecraft:sheep {sx+4} {sy+1} {sz+3} {{PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx+6} {sy+1} {sz-2} {{PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx-5} {sy+1} {sz+4} {{PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx-3} {sy+1} {sz-5} {{PersistenceRequired:1b}}"
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, "killed:sheep", walked]
+grader:
+  kind: milestones
+  required: [bed, logs]
+  steps:
+    - {name: bed,   weight: 3, check: {kind: placed, block: "*_bed", count: 1}}
+    - {name: logs,  weight: 1, check: {kind: inventory, item: "*_log", count: 4}}
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 480
+exec_timeout: 150
+tags: [tier-b, survival, bed, protocol]

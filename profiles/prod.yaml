@@ -1,0 +1,32 @@
+# The live server as the event logs of 2026-09-23..25 show it, on the survival arena.
+# A task opts in with `profile: prod`; any key it sets itself wins (`world` merges key by key).
+#
+#   Hard           zombie hits of 4.5-5 (40 samples in the journal's combat table), reinforcements on a hit;
+#                  status never says the difficulty, only the damage does
+#   spawn-protect  16 blocks around the world spawn: the bot is not op, so digs and placements there are
+#                  undone by the server (the facade refuses them first, as live sets at login)
+#   tundra         snowy plains: strays instead of skeletons, water freezes, snow instead of rain; the
+#                  terrain is still seed 1's (oak and birch, no snow cover), only the biome is repainted
+#   no livestock   "no animals within 48 blocks" 14 times, "0 of 3 wool: no sheep" every spawn errand
+#   drops          keep_inventory off: a death leaves the bot at the world spawn with nothing
+#   ticks          random ticks at vanilla speed (the arena's default freezes them)
+#   harness        the live guard, a journal, the spawn errand before the task; thinking effort is [agent].effort, as live's
+#
+# Evals and live tasks both run on [agent].model, so a default run is like-for-like. Nights run at full length
+# (about 10 real minutes) unless fast_nights (the default) jumps to morning once the harness has the bot enclosed.
+world:
+  type: survival
+  seeds: [1]
+  border: 320
+  daylight: true
+  difficulty: hard
+  spawn_protection: 16
+  keep_inventory: false
+  random_tick_speed: 3
+  biome: snowy_plains
+  biome_radius: 160     # the whole border: a Sonnet 5 run found pigs 136 blocks out, past a 128 cull
+  passive_mobs: false
+guard: true
+journal: true
+spawn_first: true
+stats: [deaths, damage_taken, kills, walked]

@@ -1,0 +1,38 @@
+# The bed the tundra would not give: on the live server the spawn errand ran 54 times and failed 43 ("0 of 3
+# wool: no sheep within 48 blocks"), the wool milestone failed three times (182535, 190615, 192641), and
+# the only bed that got made came from wool a player dropped (010212). findFar was handed 'sheep' as a block
+# name and errored (182535, 190615, 010212). Without the bed, every death went back to the world spawn.
+#
+# Prod world: no livestock within 160 blocks of the spawn, except the six sheep this task puts 120 blocks
+# east (out of the errand's 48-block search and the bot's sight). A bed also comes from four string a
+# spider drops per wool, at night. Passing takes the server's respawn point on a bed, outside the spawn
+# protection: a bed that is only placed does not count, and neither does one the bot walled over.
+profile: prod
+prompt: >-
+  Get a bed and make it your respawn point, somewhere outside the spawn protection within about 60 blocks of
+  here, so a death brings you back to it. End near the bed.
+inventory: {stone_sword: 1, oak_planks: 8, bread: 4}   # a table (4) and a bed (3): the wood is not what is tested
+start: {time: 1000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the flock: six, so a lost drop or a stray sheep does not decide it (a Sonnet baseline trial of 2026-09-25:
+  # four sheep killed, two wool); summoned where the chunks are loaded, then spread onto the ground 120 blocks east (north of
+  # seed 1's spawn is sea, where spreadplayers finds no ground and leaves them at the spawn)
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Tags:[\"flock\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Tags:[\"flock\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Tags:[\"flock\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Tags:[\"flock\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Tags:[\"flock\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Tags:[\"flock\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx+120} {sz} 2 8 false @e[tag=flock]"
+grader:
+  kind: milestones
+  required: [bed_spawn]
+  steps:
+    - {name: bed_spawn, weight: 4, check: {kind: respawn, min_from_spawn: 17, max_from_spawn: 70}}
+    - {name: back,      weight: 1, hold: true, check: {kind: position, target_abs: spawn, tolerance: 70, y_tolerance: 400}}
+    - {name: alive,     weight: 1, hold: true, check: {kind: survived}}
+max_turns: 20
+max_seconds: 900
+exec_timeout: 240
+tags: [tier-c, survival, prod, bed, spawn]

@@ -1,0 +1,129 @@
+# A first night and a first home, from nothing, in a tundra. The setup carves the whole world: the border is 128
+# across, and everything inside it is laid down here over seed 1's terrain. Snowy plains under a snow layer around the
+# spawn; frozen ocean (ice over 8 deep of water) the west and south quarters; more open tundra east, with one stone
+# outcrop that shows coal and iron on its faces; and in the north, 42+ blocks off, the only wood: a stand of spruce
+# with a fenced pen among it (a gate on its south side) holding THREE sheep. Iron also lies in four veins 9..13 under
+# the plains. No other livestock in the world.
+#
+# The goal: a base at least 6x6 with a door and a bed, and the respawn point set on that bed. It starts with about two
+# minutes of daylight (time 10600: the curfew at 12500, dark at 13000), so the first day is a scramble; the curfew
+# encloses the bot at nightfall wherever it got to, and fast_nights jumps the held night to morning, so the night
+# costs under a minute of wall clock. A bed is three wool, and one sheep killed gives one (the three of them killed make one bed): the routes to a bed are
+# shears (two iron: find the ore, a stone pickaxe, a furnace) to shear it, again as the wool grows back on the pen's
+# grass. Peaceful: no hostiles and no spawning, so the night costs time but not life, and there is no string from spiders.
+#
+# Passing takes the house (6x6 or more outside, enclosed, roofed), a door in its wall, and the server's respawn point
+# on a bed inside it. The milestones on the way score progress: wood, a pickaxe, iron, shears, wool, a bed made.
+prompt: >-
+  Make a home here before you lose too many nights: a base at least 6x6 on the outside, enclosed and roofed, with a
+  door in its wall and a bed inside, and your respawn point set on that bed. You have nothing. Night falls in about
+  two minutes, so do what you can before then and keep yourself safe through it. Better tools, shears, and iron make
+  the rest easier.
+inventory: {}
+world:
+  type: survival
+  seeds: [1]
+  radius: 64                # the plot is the whole world: a base anywhere inside the border is graded
+  border: 128
+  daylight: true
+  difficulty: peaceful        # no mobs: no hostiles, and natural spawning off (survival.init_world), so no polar bears
+  biome: snowy_plains
+  biome_radius: 80
+  passive_mobs: false       # the pen's three sheep are the only ones
+start: {time: 10600, weather: clear}
+spawn_first: false          # the harness's bed errand kills sheep for wool: here it would take the pen's
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the land: 128 x 128 from the border's west/north edge (sx-64, sz-64); fills over the block limit are split
+  - "fill {sx-64} {sy} {sz-64} {sx+63} {sy+40} {sz+63} minecraft:air"
+  - "fill {sx-64} {sy-30} {sz-64} {sx+63} {sy-5} {sz+63} minecraft:stone"
+  - "fill {sx-64} {sy-4} {sz-64} {sx+63} {sy-2} {sz+63} minecraft:dirt"
+  - "fill {sx-64} {sy-1} {sz-64} {sx+63} {sy-1} {sz+63} minecraft:grass_block"
+  # the frozen ocean, west quarter (x < sx-40) and south quarter (z > sz+40): gravel bed, water, an ice sheet one
+  # below the land
+  - "fill {sx-64} {sy-12} {sz-64} {sx-41} {sy-11} {sz+63} minecraft:gravel"
+  - "fill {sx-64} {sy-10} {sz-64} {sx-41} {sy-3} {sz+63} minecraft:water"
+  - "fill {sx-64} {sy-2} {sz-64} {sx-41} {sy-2} {sz+63} minecraft:ice"
+  - "fill {sx-64} {sy-1} {sz-64} {sx-41} {sy-1} {sz+63} minecraft:air"
+  - "fill {sx-40} {sy-12} {sz+41} {sx+63} {sy-11} {sz+63} minecraft:gravel"
+  - "fill {sx-40} {sy-10} {sz+41} {sx+63} {sy-3} {sz+63} minecraft:water"
+  - "fill {sx-40} {sy-2} {sz+41} {sx+63} {sy-2} {sz+63} minecraft:ice"
+  - "fill {sx-40} {sy-1} {sz+41} {sx+63} {sy-1} {sz+63} minecraft:air"
+  - "fillbiome {sx-64} {sy-4} {sz-64} {sx-41} {sy+3} {sz-1} minecraft:frozen_ocean"
+  - "fillbiome {sx-64} {sy-4} {sz} {sx-41} {sy+3} {sz+63} minecraft:frozen_ocean"
+  - "fillbiome {sx-40} {sy-4} {sz+41} {sx+11} {sy+3} {sz+63} minecraft:frozen_ocean"
+  - "fillbiome {sx+12} {sy-4} {sz+41} {sx+63} {sy+3} {sz+63} minecraft:frozen_ocean"
+  - "fillbiome {sx-40} {sy-4} {sz-64} {sx+11} {sy+12} {sz-41} minecraft:snowy_taiga"
+  - "fillbiome {sx+12} {sy-4} {sz-64} {sx+63} {sy+12} {sz-41} minecraft:snowy_taiga"
+  # ore: coal near the surface, iron in four 2x2x2 veins (32 raw iron in all), none in sight from the ground
+  - "fill {sx+6} {sy-7} {sz+8} {sx+8} {sy-6} {sz+9} minecraft:coal_ore"
+  - "fill {sx-15} {sy-8} {sz-10} {sx-13} {sy-7} {sz-9} minecraft:coal_ore"
+  - "fill {sx+20} {sy-6} {sz-20} {sx+22} {sy-5} {sz-19} minecraft:coal_ore"
+  - "fill {sx+10} {sy-10} {sz-12} {sx+11} {sy-9} {sz-11} minecraft:iron_ore"
+  - "fill {sx-12} {sy-13} {sz+14} {sx-11} {sy-12} {sz+15} minecraft:iron_ore"
+  - "fill {sx+25} {sy-11} {sz+15} {sx+26} {sy-10} {sz+16} minecraft:iron_ore"
+  - "fill {sx-5} {sy-12} {sz-30} {sx-4} {sy-11} {sz-29} minecraft:iron_ore"
+  # the outcrop, 26..34 east: stone in three steps, coal on its west face, four iron ore on its north face
+  - "fill {sx+26} {sy} {sz-6} {sx+34} {sy+1} {sz+4} minecraft:stone"
+  - "fill {sx+27} {sy+2} {sz-5} {sx+33} {sy+2} {sz+3} minecraft:stone"
+  - "fill {sx+28} {sy+3} {sz-4} {sx+32} {sy+3} {sz+2} minecraft:stone"
+  - "fill {sx+26} {sy} {sz-2} {sx+26} {sy+1} {sz} minecraft:coal_ore"
+  - "fill {sx+30} {sy} {sz-6} {sx+31} {sy+1} {sz-6} minecraft:iron_ore"
+  # the spruce stand, 42..62 north (the nearest trunk 44 from the spawn)
+  - "place feature minecraft:spruce {sx-26} {sy} {sz-50}"
+  - "place feature minecraft:spruce {sx-20} {sy} {sz-58}"
+  - "place feature minecraft:spruce {sx-14} {sy} {sz-46}"
+  - "place feature minecraft:spruce {sx-8} {sy} {sz-55}"
+  - "place feature minecraft:spruce {sx-2} {sy} {sz-61}"
+  - "place feature minecraft:spruce {sx+3} {sy} {sz-44}"
+  - "place feature minecraft:spruce {sx+18} {sy} {sz-61}"
+  - "place feature minecraft:spruce {sx+24} {sy} {sz-55}"
+  - "place feature minecraft:spruce {sx+30} {sy} {sz-45}"
+  - "place feature minecraft:spruce {sx+36} {sy} {sz-59}"
+  - "place feature minecraft:spruce {sx+42} {sy} {sz-50}"
+  - "place feature minecraft:spruce {sx+48} {sy} {sz-43}"
+  - "place feature minecraft:spruce {sx+54} {sy} {sz-56}"
+  - "place feature minecraft:spruce {sx-32} {sy} {sz-60}"
+  # the pen, 8..16 east and 46..52 north, cleared of any canopy: a spruce fence round 7x5 of grass, the gate south
+  - "fill {sx+7} {sy} {sz-53} {sx+17} {sy+14} {sz-45} minecraft:air"
+  - "fill {sx+8} {sy} {sz-52} {sx+16} {sy} {sz-52} minecraft:spruce_fence"
+  - "fill {sx+8} {sy} {sz-46} {sx+16} {sy} {sz-46} minecraft:spruce_fence"
+  - "fill {sx+8} {sy} {sz-51} {sx+8} {sy} {sz-47} minecraft:spruce_fence"
+  - "fill {sx+16} {sy} {sz-51} {sx+16} {sy} {sz-47} minecraft:spruce_fence"
+  - "setblock {sx+12} {sy} {sz-46} minecraft:spruce_fence_gate[facing=south]"
+  # snow over the land (not the sea, not the pen's grass: a sheep grows its wool back by eating it)
+  - "fill {sx-40} {sy} {sz-64} {sx+63} {sy} {sz+40} minecraft:snow replace minecraft:air"
+  - "fill {sx+28} {sy+4} {sz-4} {sx+32} {sy+4} {sz+2} minecraft:snow"
+  - "fill {sx+9} {sy} {sz-51} {sx+15} {sy} {sz-47} minecraft:air"
+  # nothing alive but the bot and the sheep: whatever the old terrain held, and the drops of the fills
+  - "kill @e[type=!minecraft:player,x={sx-64},y={sy-40},z={sz-64},dx=128,dy=100,dz=128]"
+  - "summon minecraft:sheep {sx+12} {sy} {sz-49} {{Color:0b,PersistenceRequired:1b,Tags:[\"pen\"]}}"
+  - "summon minecraft:sheep {sx+10} {sy} {sz-50} {{Color:0b,PersistenceRequired:1b,Tags:[\"pen\"]}}"
+  - "summon minecraft:sheep {sx+14} {sy} {sz-48} {{Color:0b,PersistenceRequired:1b,Tags:[\"pen\"]}}"
+  - "time set 10600"        # again: the clock ran through the setup, and the two minutes are the bot's
+stats: [deaths, damage_taken, kills, walked, "killed:sheep"]
+grader:
+  kind: milestones
+  required: [house, door, home_spawn]
+  steps:
+    - {name: wood,       weight: 1, check: {kind: inventory, item: ["*_log", "*_planks"], count: 8}}
+    - {name: pickaxe,    weight: 1, check: {kind: inventory, item: "*_pickaxe", count: 1}}
+    - {name: iron,       weight: 1, check: {kind: inventory, item: ["raw_iron", "iron_*", "shears"], count: 1}}
+    - {name: shears,     weight: 1, check: {kind: inventory, item: shears, count: 1}}
+    - {name: wool,       weight: 1, check: {kind: inventory, item: "*_wool", count: 1}}
+    - {name: bed,        weight: 1, check: {kind: have_or_placed, item: "*_bed"}}
+    - name: house        # doors count as wall: shut or open, the shell is enclosed with no doorway gap
+      weight: 3
+      check: {kind: structure, min_footprint: 36, min_side: 6, min_interior: 16, min_placed: 40, entrance: false, contained: false}
+    - name: door
+      weight: 1
+      check: {kind: furnishings, items: [{name: door, item: "*_door", in_shell: true}]}
+    - name: bed_inside
+      weight: 1
+      check: {kind: furnishings, items: [{name: bed, item: "*_bed", inside: true}]}
+    - {name: home_spawn, weight: 4, check: {kind: respawn, inside: true}}
+    - {name: alive,      weight: 2, hold: true, check: {kind: survived}}
+max_turns: 50
+max_seconds: 2400
+exec_timeout: 300
+tags: [tier-c, survival, composite, biome, bed, night, building]

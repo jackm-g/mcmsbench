@@ -1,0 +1,35 @@
+# A desert: sand over sandstone, not a tree in the loaded world, husks by day. "Build a shelter" here must not
+# become a hunt for oak (the live server, 2026-09-24: shelters "fixated on wood" where there was none). The
+# biome card says what the desert gives: sandstone needs a table, sand walls fall, a room dug into the
+# sandstone does not. Passing is being alive in the morning; a hut of local material scores extra. The curfew
+# is off so the shelter is the model's own work, not the harness's dig-in.
+prompt: >-
+  Build a shelter here that will keep mobs out tonight: walls all round, a roof, room to stand inside. Use
+  what this place gives you, be inside it when night falls, and stay in it until morning.
+inventory: {}
+world: {type: survival, seeds: [1], daylight: true, difficulty: normal}
+start: {time: 9000}
+curfew: false
+setup:
+  - "fillbiome {sx-20} {sy-8} {sz-20} {sx+20} {sy+8} {sz+20} minecraft:desert"
+  - "fill {sx-22} {sy} {sz-22} {sx+22} {sy+14} {sz+22} minecraft:air"
+  - "fill {sx-22} {sy-5} {sz-22} {sx+22} {sy-2} {sz+22} minecraft:sandstone"
+  - "fill {sx-22} {sy-1} {sz-22} {sx+22} {sy-1} {sz+22} minecraft:sand"
+  - "setblock {sx+4} {sy} {sz+3} minecraft:dead_bush"
+  - "setblock {sx-5} {sy} {sz+6} minecraft:dead_bush"
+  - "setblock {sx+7} {sy} {sz-6} minecraft:dead_bush"
+  - "setblock {sx-8} {sy} {sz-4} minecraft:cactus"
+movements: {can_dig: true, towers: true, scaffolding: [sand, sandstone, dirt, cobblestone]}
+stats: [deaths, damage_taken, walked]
+grader:
+  kind: milestones
+  required: [alive, morning]
+  steps:
+    - {name: local,   weight: 1, check: {kind: have_or_placed, item: ["sandstone", "sand"], count: 1}}
+    - {name: hut,     weight: 2, check: {kind: structure, min_footprint: 9, min_interior: 2, min_placed: 8, contained: false, entrance: false}}
+    - {name: dug_in,  weight: 1, check: {kind: dug, block: "sandstone", count: 3}}
+    - {name: alive,   weight: 3, hold: true, check: {kind: survived}}
+    - {name: morning, weight: 2, check: {kind: world_time, between: [23000, 6000]}}
+max_turns: 15
+max_seconds: 900
+tags: [tier-c, survival, night, biome, building]

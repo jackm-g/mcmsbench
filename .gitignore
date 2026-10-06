@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+runs/
+infra/data-*/
+infra/worlds/*.tar
+.DS_Store
+.vscode/
+CLAUDE.local.md

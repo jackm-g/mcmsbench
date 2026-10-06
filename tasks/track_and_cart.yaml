@@ -1,0 +1,18 @@
+# The track layer and the cart ride together: a powered track from START to END, then the bot rides
+# a minecart along it and ends at the END. Flat plot, materials supplied.
+prompt: >-
+  Build a minecart track from START, x={ax}, y={ay}, z={az}, to END, x={ax+20}, y={ay}, z={az} (a straight
+  line along +x on the ground) with powered rails and redstone torches so that a cart keeps moving, and
+  a solid block just behind the start so a cart placed at START sets off toward END. Then place your
+  minecart at START, ride it to END, and finish the task standing at END.
+anchor: [4, 0, 14]
+inventory: {rail: 32, powered_rail: 8, redstone_torch: 8, cobblestone: 16, minecart: 1}
+grader:
+  kind: milestones
+  required: rode
+  steps:
+    - {name: track, weight: 2, check: {kind: rail_path, from: [4, 0, 14], to: [24, 0, 14], powered_every: 8}}
+    - {name: rode,  weight: 4, check: {kind: position, target: [24, 0, 14], tolerance: 2.5, y_tolerance: 2}}
+max_turns: 8
+max_seconds: 360
+tags: [tier-c, mechanical, rails, procedures]

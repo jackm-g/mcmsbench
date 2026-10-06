@@ -1,0 +1,21 @@
+prompt: >-
+  You fell into a flooded quarry pit with nothing in your hands and sank to the bottom. Base is on the ground at
+  x={sx}, z={sz}. Do not drown: get up out of the water and the pit, then go stand on base (within 3 blocks).
+inventory: {}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: water_pit, depth: 3, lip: 2, width: 3, wall: stone, distance: 40, random_radius: 8, time: day}
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: close,       weight: 1, check: {kind: position, target_abs: spawn, tolerance: 30, y_tolerance: 400}}
+    - {name: arrived,     weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,       weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 600
+exec_timeout: 300
+tags: [tier-c, survival, orientation, situation]
+# The live bot, 2026-09-24: a stone shaft and no pickaxe, seven minutes of goto "no progress". Stone by hand is
+# ~7.5 s a block and five times that while afloat, so the step cut out of the water is the slow part. No
+# mined:stone milestone: the game counts a block mined only with the right tool, and here there is none.

@@ -1,0 +1,22 @@
+prompt: >-
+  Your mine shaft broke into an aquifer: you are at the bottom of a flooded one-wide shaft in the rock, with a
+  stone pickaxe. Base is on the ground at x={sx}, z={sz}. Do not drown: get up out of the water and the shaft,
+  then go stand on base (within 3 blocks).
+inventory: {stone_pickaxe: 1}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: water_pit, depth: 3, lip: 10, width: 1, wall: stone, distance: 40, random_radius: 8, time: day}
+stats: [deaths, damage_taken, "mined:stone"]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: climbed_out, weight: 1, check: {kind: stat, name: "mined:stone", min: 1}}
+    - {name: arrived,     weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,       weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 600
+exec_timeout: 300
+tags: [tier-c, survival, orientation, situation]
+# The live bot, 2026-09-25: mine_shaft broke into an aquifer at y=50; surface "climb failed: No path to the goal!",
+# eleven digs straight up refused, breath at -1, out only by a hand loop of goto(x, y+1, z). Here a 1x1 shaft, the
+# water 3 deep, its top 10 under the ground.

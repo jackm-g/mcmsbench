@@ -1,0 +1,37 @@
+prompt: >-
+  Build a furnished two-story house somewhere inside your plot, using the materials you are carrying.
+  The shell: at least 6x6 on the outside, walls all the way round, a roof, and two separate floors a
+  player can stand on (ground floor and an upstairs, each with at least 2 blocks of headroom), joined
+  by a ladder or a staircase so a player can actually get from one to the other.
+  The fittings: at least two doors (a front door plus one more); a pressure plate right next to a door
+  on each side of the front door so it opens as you walk through; a bed in the upstairs room; at least
+  two storage chests inside; and rugs (carpet) on the floor inside, at least six pieces. Windows and
+  torches are welcome but optional. Check your work with bot.scan before you finish.
+anchor: [12, 0, 12]
+inventory:
+  oak_planks: 448
+  cobblestone: 64
+  glass: 24
+  oak_stairs: 24
+  ladder: 12
+  oak_door: 3
+  oak_pressure_plate: 4
+  red_bed: 1
+  chest: 3
+  red_carpet: 16
+  white_carpet: 16
+  torch: 16
+grader:
+  kind: milestones
+  required: [shell, two_stories, doors, pressure_plates, bed_upstairs, chests, rugs]
+  steps:
+    - {name: shell,           weight: 3, check: {kind: structure, min_footprint: 36, min_interior: 24, min_placed: 100}}
+    - {name: two_stories,     weight: 3, check: {kind: stories, count: 2, min_area: 12, connected: true}}
+    - {name: doors,           weight: 1, check: {kind: furnishings, items: [{item: "*_door", count: 2}]}}
+    - {name: pressure_plates, weight: 1, check: {kind: furnishings, items: [{item: "*_pressure_plate", count: 2, next_to: "*_door"}]}}
+    - {name: bed_upstairs,    weight: 1, check: {kind: furnishings, min_area: 12, items: [{item: "*_bed", count: 1, story: 2}]}}
+    - {name: chests,          weight: 1, check: {kind: furnishings, items: [{item: [chest, barrel, trapped_chest], count: 2, inside: true}]}}
+    - {name: rugs,            weight: 1, check: {kind: furnishings, items: [{item: "*_carpet", count: 6, inside: true}]}}
+max_turns: 30
+max_seconds: 1800
+tags: [tier-d, building, open-ended, composite]

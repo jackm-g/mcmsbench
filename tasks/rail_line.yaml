@@ -1,0 +1,28 @@
+prompt: >-
+  Build a minecart track so that a minecart placed at the START, x={ax}, y={ay}, z={az}, travels
+  by itself to the END at x={ax+20}, y={ay}, z={az} (a straight line along +x on the ground) and
+  arrives there. Plain rails alone will not carry it 20 blocks: use powered rails with redstone
+  torches to keep the cart moving. Place a solid block just behind the start rail (at x={ax-1}) so
+  a cart at the start is launched toward the end. Nothing else is needed.
+anchor: [4, 0, 14]
+inventory: {rail: 32, powered_rail: 8, redstone_torch: 8, cobblestone: 16}
+grader:
+  kind: milestones
+  required: cart_arrives
+  steps:
+    - {name: track,       weight: 2, check: {kind: rail_path, from: [4, 0, 14], to: [24, 0, 14], powered_every: 8}}
+    - name: cart_arrives
+      weight: 4
+      check:
+        kind: functional
+        steps:
+          - {do: "kill @e[type=minecart]"}
+          - {do: "summon minecraft:minecart {ax}.5 {ay} {az}.5 {{Motion:[0.3,0.0,0.0]}}"}
+          # arrived at any moment in the run: a cart that reaches the end and rolls back off a powered end rail still
+          # arrived (anthropic-0926 rail_line: a single look at 10 s)
+          - {assert: "execute if entity @e[type=minecart,x={ax+20},y={ay},z={az},distance=..2.5]", within: 14}
+          - {do: "data get entity @e[type=minecart,limit=1] Pos"}   # where it was, for the log
+        cleanup: ["kill @e[type=minecart]"]
+max_turns: 8
+max_seconds: 300
+tags: [tier-c, mechanical, rails]

@@ -1,0 +1,29 @@
+# Four lava sources at feet level just east of the pocket with the diamond vein directly under them.
+# No X-ray. Tunnelling straight at them opens the pool into your tunnel; mining up into them from
+# below drops lava on your head. The safe sequence is cap first (a block placed into each source),
+# then dig. Water turns the sources to obsidian, which an iron pickaxe cannot mine.
+prompt: >-
+  There is a small lava pool just east of you, and diamonds right underneath it. Get at least one
+  diamond without getting burned.
+inventory: {iron_pickaxe: 1, water_bucket: 1, cobblestone: 16, bread: 3}
+world: {type: survival, seeds: [1], border: 200}
+start: {situation: cave, depth: 118, time: day}
+xray: false
+movements: {can_dig: true, towers: true, scaffolding: [cobblestone]}
+setup:
+  - "fill {bx+3} {by-2} {bz-1} {bx+6} {by+3} {bz+2} minecraft:deepslate"
+  - "fill {bx+4} {by-1} {bz} {bx+5} {by-1} {bz+1} minecraft:deepslate_diamond_ore"
+  - "fill {bx+4} {by} {bz} {bx+5} {by} {bz+1} minecraft:lava"
+stats: [deaths, damage_taken, "mined:deepslate_diamond_ore"]
+grader:
+  kind: milestones
+  required: [diamond, alive]
+  steps:
+    - {name: ore,     weight: 1, check: {kind: stat, name: "mined:deepslate_diamond_ore", min: 1}}
+    - {name: diamond, weight: 4, check: {kind: inventory, item: diamond, count: 1}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+    - {name: unhurt,  weight: 2, hold: true, check: {kind: stat, name: damage_taken, max: 1}}
+max_turns: 10
+max_seconds: 420
+exec_timeout: 150
+tags: [tier-d, survival, mining, hazard, planning]

@@ -1,0 +1,18 @@
+# Build, light, enter. Ten obsidian is exactly a corner-less frame, whose side columns have nothing to
+# be placed against, so corners (or a temporary block) are part of the puzzle. Flint and steel on the
+# bottom of the frame lights it; the dimension pseudo-stat says whether it went through.
+prompt: >-
+  Build a nether portal here, light it, and go through it into the Nether. Say where you end up.
+anchor: [12, 0, 12]
+inventory: {obsidian: 12, cobblestone: 8, flint_and_steel: 1}
+stats: [deaths, "dimension:the_nether", "advancement:story/enter_the_nether", "used:flint_and_steel"]
+grader:
+  kind: milestones
+  required: in_nether
+  steps:
+    - {name: frame,     weight: 2, check: {kind: placed, block: obsidian, count: 10}}
+    - {name: lit,       weight: 2, check: {kind: placed, block: nether_portal, count: 6}}
+    - {name: in_nether, weight: 4, check: {kind: stat, name: "dimension:the_nether", min: 1}}
+max_turns: 8
+max_seconds: 300
+tags: [tier-c, mechanical, nether]

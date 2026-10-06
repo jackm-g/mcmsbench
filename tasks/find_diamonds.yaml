@@ -1,0 +1,27 @@
+# Deep in deepslate with no X-ray: find_blocks only reports blocks with an open face, so the ore
+# has to be uncovered by mining. Setup plants two small veins near the pocket. The hazard is what
+# else is down there (lava, drops); the grader wants a diamond in the inventory and no deaths.
+prompt: >-
+  You are deep underground with an iron pickaxe. Mine around until you find diamonds and get at least
+  one diamond into your inventory. Watch out for lava.
+inventory: {iron_pickaxe: 1, torch: 16, cobblestone: 16, bread: 4}
+world: {type: survival, seeds: [1], border: 200}
+start: {situation: cave, depth: 118, time: day}
+xray: false
+movements: {can_dig: true, towers: true, scaffolding: [cobblestone]}
+setup:
+  - "fill {bx+5} {by-1} {bz-1} {bx+6} {by} {bz} minecraft:deepslate_diamond_ore"
+  - "fill {bx-7} {by} {bz+5} {bx-6} {by+1} {bz+6} minecraft:deepslate_diamond_ore"
+stats: [deaths, damage_taken, "mined:deepslate", "mined:stone", "mined:deepslate_diamond_ore"]
+grader:
+  kind: milestones
+  required: diamond
+  steps:
+    - {name: dug,     weight: 1, check: {kind: stat, name: "mined:deepslate", min: 8}}
+    - {name: ore,     weight: 2, check: {kind: stat, name: "mined:deepslate_diamond_ore", min: 1}}
+    - {name: diamond, weight: 4, check: {kind: inventory, item: diamond, count: 1}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+max_turns: 10
+max_seconds: 480
+exec_timeout: 200
+tags: [tier-c, survival, mining, vague]

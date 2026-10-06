@@ -1,0 +1,127 @@
+# The farmstead: a world where staying fed takes a farm. Every task on this profile is the same survival problem
+# behind a different request: a player who only says "survive", one who asks for a base, one who names the food.
+# Each sets its own `prompt` (and `notes`); the world, the finish line and the grader are here.
+#
+# The setup carves the whole world over seed 1's terrain: the border is 128 across, and everything inside it is laid
+# down here. A plains meadow of short grass everywhere (seeds: one break in eight), cleared 11x11 at the spawn for the
+# base; a birch grove 14..34 west (birch drops no apples); a 5x4 pond 7..11 east, two deep, close enough to farm
+# beside; a stream 25 south; a stone outcrop 18..26 north with coal on its west face and four iron ore on the face
+# towards the spawn, and two iron veins underground. The livestock: 2 cows and 3 chickens, loose in the meadow to the
+# south-east, nothing else alive. Normal difficulty, the day running: the bot starts at dawn (time 0) carrying a bed
+# and nothing else, at food 6 with no saturation (start.food), so it cannot heal until it eats.
+#
+# The finish line (the task check, which gates `done`): food 20 and at least 60 food points carried (bread 5, cooked
+# beef 8, cooked chicken 6). The slaughter ceiling: 2 cows drop at most 6 beef (48 cooked), 3 chickens at most 3
+# chicken (18 cooked): 66 points, of which 14 go to filling the bar from 6, leaving at most 52 to carry, before the
+# hunger the run burns. So 60 needs crops or a bred herd (tests/test_farmstead.py keeps that true). The grader then
+# asks that the food is renewable: a watered wheat field standing at the end, at least two of each animal alive, and
+# no baby killed (the herd watcher, evals/run.py HerdWatcher; babies age 4x as fast so a bred calf is grown in about
+# five minutes; a cow or chicken the world spawns, or a jockey rides in on, is removed on sight, as no farmer's
+# herd grows by itself). Random ticks run at 40 (vanilla 3): wheat ripens in a few minutes, not half an hour.
+#
+# The harness's provision errand (bridge/procedures.py provision) hunts even the last pair of a kind at food 10 or
+# below, and the policy's `fed` rule runs it when the bot is hungry with nothing to eat, which is how this world
+# starts: until that is fixed, a trial can lose its herd to the harness rather than the model. Read the trace's
+# `herd` and the event log's provision calls before blaming the model for a failed `herd`.
+world:
+  type: survival
+  seeds: [1]
+  radius: 64                # the plot is the whole world: a farm or a base anywhere inside the border is graded
+  border: 128
+  daylight: true
+  difficulty: normal
+  biome: plains
+  biome_radius: 80
+  passive_mobs: false       # the meadow's two cows and three chickens are the only livestock
+  random_tick_speed: 40
+start: {time: 0, weather: clear, food: 6}
+inventory: {red_bed: 1}
+spawn_first: false          # the bed is the bot's to place: in its base
+fast_nights: true
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+herd_watch: {types: [cow, chicken], grow: 4, strays: true}   # strays: Normal spawns animals too; they go
+setup:
+  # the land: 128 x 128 from the border's west/north edge (sx-64, sz-64); fills over the block limit are split
+  - "fill {sx-64} {sy} {sz-64} {sx+63} {sy+40} {sz+63} minecraft:air"
+  - "fill {sx-64} {sy-30} {sz-64} {sx+63} {sy-5} {sz+63} minecraft:stone"
+  - "fill {sx-64} {sy-4} {sz-64} {sx+63} {sy-2} {sz+63} minecraft:dirt"
+  - "fill {sx-64} {sy-1} {sz-64} {sx+63} {sy-1} {sz+63} minecraft:grass_block"
+  # ore underground: coal near the surface, iron in two 2x2x2 veins (16 raw iron)
+  - "fill {sx+6} {sy-7} {sz-8} {sx+8} {sy-6} {sz-7} minecraft:coal_ore"
+  - "fill {sx-15} {sy-8} {sz+10} {sx-13} {sy-7} {sz+11} minecraft:coal_ore"
+  - "fill {sx+14} {sy-10} {sz-14} {sx+15} {sy-9} {sz-13} minecraft:iron_ore"
+  - "fill {sx-12} {sy-12} {sz+20} {sx-11} {sy-11} {sz+21} minecraft:iron_ore"
+  # the birch grove, 14..34 west (the nearest trunk 14 from the spawn), planted before the meadow grows round it
+  - "place feature minecraft:birch {sx-14} {sy} {sz-6}"
+  - "place feature minecraft:birch {sx-17} {sy} {sz+3}"
+  - "place feature minecraft:birch {sx-19} {sy} {sz-12}"
+  - "place feature minecraft:birch {sx-21} {sy} {sz+9}"
+  - "place feature minecraft:birch {sx-22} {sy} {sz-2}"
+  - "place feature minecraft:birch {sx-24} {sy} {sz-17}"
+  - "place feature minecraft:birch {sx-25} {sy} {sz+15}"
+  - "place feature minecraft:birch {sx-27} {sy} {sz+4}"
+  - "place feature minecraft:birch {sx-28} {sy} {sz-9}"
+  - "place feature minecraft:birch {sx-30} {sy} {sz+11}"
+  - "place feature minecraft:birch {sx-31} {sy} {sz-3}"
+  - "place feature minecraft:birch {sx-32} {sy} {sz-14}"
+  - "place feature minecraft:birch {sx-33} {sy} {sz+7}"
+  - "place feature minecraft:birch {sx-34} {sy} {sz+18}"
+  # the meadow: short grass on every open grass block, then the base site at the spawn cleared
+  - "fill {sx-64} {sy} {sz-64} {sx+63} {sy} {sz+63} minecraft:short_grass replace minecraft:air"
+  - "fill {sx-5} {sy} {sz-5} {sx+5} {sy} {sz+5} minecraft:air"
+  # the pond, 7..11 east: 5x4 of water two deep, its surface level with the ground
+  - "fill {sx+7} {sy} {sz-2} {sx+11} {sy} {sz+1} minecraft:air"
+  - "fill {sx+7} {sy-2} {sz-2} {sx+11} {sy-1} {sz+1} minecraft:water"
+  # the stream, 25 south: a line of source water across the meadow
+  - "fill {sx-30} {sy} {sz+25} {sx+30} {sy} {sz+25} minecraft:air"
+  - "fill {sx-30} {sy-1} {sz+25} {sx+30} {sy-1} {sz+25} minecraft:water"
+  # the outcrop, 18..26 north: stone in three steps, coal on its west face, four iron ore on the face to the spawn
+  - "fill {sx-4} {sy} {sz-26} {sx+4} {sy+1} {sz-18} minecraft:stone"
+  - "fill {sx-3} {sy+2} {sz-25} {sx+3} {sy+2} {sz-19} minecraft:stone"
+  - "fill {sx-2} {sy+3} {sz-24} {sx+2} {sy+3} {sz-20} minecraft:stone"
+  - "fill {sx-4} {sy} {sz-23} {sx-4} {sy+1} {sz-21} minecraft:coal_ore"
+  - "fill {sx-1} {sy} {sz-18} {sx+1} {sy} {sz-18} minecraft:iron_ore"
+  - "setblock {sx} {sy+1} {sz-18} minecraft:iron_ore"
+  # nothing alive but the bot and the livestock: whatever the old terrain held, and the drops of the fills
+  - "kill @e[type=!minecraft:player,x={sx-64},y={sy-40},z={sz-64},dx=128,dy=100,dz=128]"
+  - "summon minecraft:cow {sx+14} {sy} {sz+12} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+  - "summon minecraft:cow {sx+17} {sy} {sz+15} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+  - "summon minecraft:chicken {sx+10} {sy} {sz+16} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+  - "summon minecraft:chicken {sx+12} {sy} {sz+18} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+  - "summon minecraft:chicken {sx+9} {sy} {sz+19} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+  - "time set 0"            # again: the clock ran through the setup, and the day is the bot's
+stats: [deaths, damage_taken, kills, walked, "killed:cow", "killed:chicken", "custom:animals_bred", "mined:wheat",
+        "crafted:bread"]
+check:   # the finish line, and only that: the farm, the herd and the babies are the grader's to judge
+  kind: all
+  from: task
+  parts:
+    - {name: fed,     role: required, check: {kind: food, min: 20}}
+    - {name: stocked, role: required, check: {kind: food_stock, min_points: 60}}
+grader:
+  kind: milestones
+  required: [farm, herd, fed, stocked, alive]
+  steps:
+    - {name: wood,       weight: 1, check: {kind: inventory, item: ["*_log", "*_planks"], count: 8}}
+    - {name: seeds,      weight: 1, check: {kind: inventory, item: wheat_seeds, count: 4}}
+    - {name: planted,    weight: 1, check: {kind: blocks, block: wheat, min: 12}}
+    - {name: harvested,  weight: 1, check: {kind: stat, name: "mined:wheat", min: 12}}
+    - {name: bread,      weight: 1, check: {kind: stat, name: "crafted:bread", min: 4}}
+    - {name: bred,       weight: 2, check: {kind: stat, name: "custom:animals_bred", min: 2}}
+    - name: base         # a shelter: walls round, a roof over, a door in the wall (doors count as wall)
+      weight: 2
+      check: {kind: structure, min_footprint: 25, min_side: 5, min_interior: 9, min_placed: 30, entrance: false, contained: false}
+    - {name: door,       weight: 1, check: {kind: furnishings, items: [{name: door, item: "*_door", in_shell: true}]}}
+    - {name: bed_inside, weight: 1, check: {kind: furnishings, items: [{name: bed, item: "*_bed", inside: true}]}}
+    - {name: home_spawn, weight: 1, check: {kind: respawn, inside: true}}
+    # the required five: the finish line, and food that lasts past it
+    - name: farm         # wheat standing on farmland the water keeps wet, after a burst of random ticks: replanted
+      weight: 3
+      check: {kind: hydrated, crop: wheat, min: 12, restore: 40}
+    - {name: herd,       weight: 3, check: {kind: herd, types: [cow, chicken], min_each: 2, max_baby_kills: 0}}
+    - {name: fed,        weight: 2, check: {kind: food, min: 20}}
+    - {name: stocked,    weight: 3, check: {kind: food_stock, min_points: 60}}
+    - {name: alive,      weight: 2, hold: true, check: {kind: survived}}
+max_turns: 80
+max_seconds: 3600
+exec_timeout: 300

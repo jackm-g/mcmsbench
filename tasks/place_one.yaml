@@ -1,0 +1,6 @@
+prompt: "Place a single cobblestone block on the ground at x={ax}, y={ay}, z={az}. Place nothing else."
+anchor: [16, 0, 16]
+inventory: {cobblestone: 4}
+grader: {kind: exact, shape: blocks, positions: [[0, 0, 0]], block: cobblestone, at: [16, 0, 16]}
+max_turns: 5
+tags: [tier-a, placement]

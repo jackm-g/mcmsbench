@@ -1,0 +1,21 @@
+prompt: >-
+  Go to base at x={sx}, z={sz} (ground level, about {dist} blocks away) and mark it: build a cobblestone
+  pillar three blocks tall standing on the ground at x={ax}, z={az}, its bottom block at y={ay}. You
+  carry the cobblestone. Nothing else needs building.
+anchor: [48, 12, 48]
+inventory: {cobblestone: 8, dirt: 16}
+world: {type: survival, seeds: [1], border: 600}
+start: {distance: 150, random_radius: 16, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: pillar
+  steps:
+    - {name: arrived, weight: 1, check: {kind: position, target_abs: spawn, tolerance: 8, y_tolerance: 8}}
+    - {name: pillar,  weight: 3, check: {kind: exact, shape: blocks, block: cobblestone, at: [48, 12, 48],
+                                         positions: [[0, 0, 0], [0, 1, 0], [0, 2, 0]], allow_extra: 4}}
+max_turns: 10
+max_seconds: 480
+exec_timeout: 200
+tags: [tier-c, survival, navigation, building, long_travel]

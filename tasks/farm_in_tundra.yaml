@@ -1,0 +1,41 @@
+# Snowy plains: a snow layer over dirt, a pond that freezes. Water in a cold biome freezes whenever the block
+# light on it is under 10 — daylight and a roof do not stop it, a torch within 4 blocks does. "Build a farm"
+# here has planted next to a pond that turned to ice by the next step. The biome card says so; the grader
+# runs the random ticks fast and looks for water that stayed water, next to wheat that got planted.
+prompt: >-
+  Make a small wheat farm here by the pond at ({sx+5}, {sy-1}, {sz+5}): tilled soil, at least 6 wheat planted,
+  and the water kept liquid so the crops stay watered. Do not let the pond freeze.
+inventory: {iron_hoe: 1, wheat_seeds: 12, torch: 6, oak_planks: 8}
+world: {type: survival, seeds: [1], daylight: true, difficulty: normal}
+start: {time: 2000}
+setup:
+  - "fillbiome {sx-20} {sy-8} {sz-20} {sx+20} {sy+8} {sz+20} minecraft:snowy_plains"
+  - "fill {sx-16} {sy} {sz-16} {sx+16} {sy+12} {sz+16} minecraft:air"
+  - "fill {sx-16} {sy-4} {sz-16} {sx+16} {sy-2} {sz+16} minecraft:dirt"
+  - "fill {sx-16} {sy-1} {sz-16} {sx+16} {sy-1} {sz+16} minecraft:grass_block"
+  - "fill {sx-16} {sy} {sz-16} {sx+16} {sy} {sz+16} minecraft:snow"
+  - "fill {sx+4} {sy-1} {sz+4} {sx+6} {sy-1} {sz+6} minecraft:water"
+  - "fill {sx+4} {sy} {sz+4} {sx+6} {sy} {sz+6} minecraft:air"
+movements: {can_dig: true, towers: true, scaffolding: [dirt]}
+stats: [deaths, "used:iron_hoe", "used:wheat_seeds"]
+grader:
+  kind: milestones
+  required: [planted, liquid]
+  steps:
+    - {name: planted, weight: 2, check: {kind: blocks, block: wheat, min: 6}}
+    - {name: lit,     weight: 1, check: {kind: placed, block: "*torch", count: 1}}
+    - name: liquid    # the pond after a burst of random ticks: unlit water in snowy plains is ice within seconds of this
+      weight: 3
+      check:
+        kind: functional
+        steps:
+          - {do: "gamerule random_tick_speed 400"}   # the 26.x snake_case name (arena.GAMERULES)
+          - {wait: 6}
+          - {assert: "execute if block {sx+5} {sy-1} {sz+5} minecraft:water"}
+          - {assert: "execute if block {sx+4} {sy-1} {sz+4} minecraft:water"}
+        cleanup:
+          - "gamerule random_tick_speed 0"   # the arena's own (tasks.WorldSpec.random_tick_speed unset)
+    - {name: alive,   weight: 1, hold: true, check: {kind: survived}}
+max_turns: 10
+max_seconds: 480
+tags: [tier-c, farming, biome, situation]

@@ -1,0 +1,26 @@
+# The vague version on purpose: no height, no coordinates, no block list. The bot has to read its
+# situation (locate: up_high / height_above_ground, heightmap, inventory), work out that a fall
+# from here kills, and get down under control — steps built against the column, or a careful dig.
+# "build downwards" (the first wording) sent Haiku to place blocks into the air column below (anthropic-0926): the task
+# is getting down, not a way of doing it.
+prompt: >-
+  you are on a very high platform. Get down to the surface safely, using the blocks you have. Do that.
+inventory: {cobblestone: 64, dirt: 32, oak_planks: 16}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: pillar, height: 30, width: 3, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [cobblestone, dirt]}
+stats: [deaths, damage_taken, "used:cobblestone", "used:dirt", "used:oak_planks"]
+grader:
+  kind: milestones
+  required: down
+  steps:
+    # a 1:1 staircase is as far out as it is down: 12 down from a 3-wide pillar is ~14 out, 30 down ~32 (anthropic-0926:
+    # Opus's straight stair reached the ground 25.7 blocks out, and no stair could meet `halfway` within 12)
+    - {name: halfway, weight: 1, check: {kind: position, target_abs: spawn, tolerance: 20, y_tolerance: 18}}
+    - {name: down,    weight: 4, check: {kind: position, target_abs: spawn, tolerance: 36, y_tolerance: 5}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+    - {name: unhurt,  weight: 1, hold: true, check: {kind: stat, name: damage_taken, max: 4}}
+max_turns: 10
+max_seconds: 480
+exec_timeout: 200
+tags: [tier-c, survival, orientation, situation, vague]

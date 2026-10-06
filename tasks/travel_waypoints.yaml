@@ -1,0 +1,21 @@
+prompt: >-
+  Patrol run. From where you are, visit checkpoint A at x={sx+70}, z={sz-50}, then checkpoint B at
+  x={sx-60}, z={sz-70}, then return to base at x={sx}, z={sz} and stand on it. All three are at ground
+  level. Visiting means getting within 4 blocks; the order matters.
+inventory: {dirt: 32}
+world: {type: survival, seeds: [1], border: 400}
+start: {distance: 60, bearing: 180, random_radius: 8, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: home
+  steps:
+    - {name: visit_a,  weight: 2, must: true, check: {kind: position, target_rel: [70, -50], tolerance: 4, y_tolerance: 400}}
+    - {name: visit_b,  weight: 2, must: true, check: {kind: position, target_rel: [-60, -70], tolerance: 4, y_tolerance: 400}}
+    - {name: home,     weight: 2, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: unharmed, weight: 1, hold: true, check: {kind: survived}}
+max_turns: 10
+max_seconds: 480
+exec_timeout: 200
+tags: [tier-c, survival, navigation, long_travel]

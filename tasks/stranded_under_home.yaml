@@ -1,0 +1,91 @@
+# The live server, 2026-09-27: milestone 1 of the player's project ("travel to the home base, confirm the bed") failed
+# twice, and the idle bot then sat 20 blocks under its own hut for an hour and a half. At 03:26 a skeleton killed it in
+# its mine; everything it carried (the pickaxe too) despawned while mine_shaft walked it back down. At 18:00 it logged
+# in at the bottom of its own staircase mine with 2 cobblestone and a dirt, 23 blocks below the hut and 25 from it.
+# The staircase home was there, but its bottom treads had been dug out (a 2-block step, no block spent to mend it),
+# and bare-handed a stone block takes ~8 s: travel() and surface() were halted mid-dig by 10 s / 15 s watchdogs, the
+# travel phase had 180 s, and the idle kit errand said "come up to the surface first" every five minutes while nothing
+# called surface(). The retry was told "0 of 1 *_bed" by a scan that never reached y 64 from the mine.
+#
+# Here, on the prod world: the hut on the slope east of the world spawn (a white bed and a crafting table inside, the
+# journal's home, and the journal still believes the respawn point is on that bed), and the bot in a lit pocket at the
+# bottom of a staircase sealed in stone, ~27 blocks of rock overhead, the staircase rising east to the surface 13
+# blocks north of the hut with its two lowest steps sunk a block (a 2-block step up). The server's respawn point is
+# the pocket, as it was live. Passing takes getting out (the staircase mended with a carried block, or a stair dug by
+# hand), reaching the hut, and setting the respawn point on its bed.
+profile: prod
+prompt: >-
+  Log in and travel to the home base at ({sx+46}, {sy-3}, {sz+12}). The white bed should already be inside the hut
+  near ({sx+45}, {sy-3}, {sz+12}) — sleep in it or right-click it and call bot.set_spawn() to confirm the respawn
+  point. If the bed is gone or broken, bot.ensure({{'white_bed': 1}}) (3 wool from sheep plus 3 planks), place it
+  inside the hut and set spawn there. Verify it before calling done.
+inventory: {cobblestone: 2, dirt: 1}
+start: {offset: [46, 12], time: 0, weather: clear}     # placed at the hut, then moved down into the mine (setup); sunrise
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+memories:
+  - {slot: home, text: "home base: the spruce hut with the white bed and a crafting table", at: "{sx+46} {sy-3} {sz+12}", ago: 20000}
+  - {slot: spawn, text: "respawn point: set on the white bed in the hut at ({sx+45}, {sy-3}, {sz+12})",
+     at: "{sx+45} {sy-3} {sz+12}", ago: 30000}
+  - {text: "Mined a staircase from just north of the hut west and down to about y {sy-25}, torches along it.",
+     at: "{sx+48} {sy-5} {sz-1}", ago: 6000}
+setup:
+  # the hut, on a pad at the slope's height: grass floor, a spruce shell with a doorway north, the bed and a table
+  - "fill {sx+42} {sy-12} {sz+8} {sx+50} {sy-5} {sz+16} minecraft:dirt replace air"
+  - "fill {sx+42} {sy-4} {sz+8} {sx+50} {sy-4} {sz+16} minecraft:grass_block"
+  - "fill {sx+42} {sy-3} {sz+8} {sx+50} {sy+3} {sz+16} minecraft:air"
+  - "fill {sx+44} {sy-4} {sz+10} {sx+48} {sy} {sz+14} minecraft:spruce_planks hollow"   # bottom face is the floor: interior 3 tall
+  - "fill {sx+46} {sy-3} {sz+10} {sx+46} {sy-2} {sz+10} minecraft:air"
+  - "setblock {sx+45} {sy-3} {sz+13} minecraft:white_bed[facing=south,part=head]"
+  - "setblock {sx+45} {sy-3} {sz+12} minecraft:white_bed[facing=south,part=foot]"
+  - "setblock {sx+47} {sy-3} {sz+13} minecraft:crafting_table"
+  - "setblock {sx+47} {sy-3} {sz+11} minecraft:torch"
+  # the mine's rock: caves, water and lava around it sealed with stone (below the slope's surface everywhere)
+  - "fill {sx+25} {sy-27} {sz-3} {sx+50} {sy-8} {sz+1} minecraft:stone replace air"
+  - "fill {sx+25} {sy-27} {sz-3} {sx+50} {sy-8} {sz+1} minecraft:stone replace water"
+  - "fill {sx+25} {sy-27} {sz-3} {sx+50} {sy-8} {sz+1} minecraft:stone replace lava"
+  # the pocket at the bottom, lit, and the staircase east and up: step k at x = sx+28+k stands at sy-25+k, three high.
+  # Steps 1 and 2 sunk a block (their treads dug out, as the pathfinder left the live one): a 2-block step up to 3.
+  - "fill {sx+26} {sy-25} {sz-2} {sx+28} {sy-23} {sz} minecraft:air"
+  - "setblock {sx+26} {sy-25} {sz-2} minecraft:torch"
+  - "fill {sx+29} {sy-25} {sz-1} {sx+29} {sy-22} {sz-1} minecraft:air"
+  - "fill {sx+30} {sy-24} {sz-1} {sx+30} {sy-21} {sz-1} minecraft:air"
+  - "fill {sx+31} {sy-22} {sz-1} {sx+31} {sy-20} {sz-1} minecraft:air"
+  - "fill {sx+32} {sy-21} {sz-1} {sx+32} {sy-19} {sz-1} minecraft:air"
+  - "fill {sx+33} {sy-20} {sz-1} {sx+33} {sy-18} {sz-1} minecraft:air"
+  - "fill {sx+34} {sy-19} {sz-1} {sx+34} {sy-17} {sz-1} minecraft:air"
+  - "fill {sx+35} {sy-18} {sz-1} {sx+35} {sy-16} {sz-1} minecraft:air"
+  - "fill {sx+36} {sy-17} {sz-1} {sx+36} {sy-15} {sz-1} minecraft:air"
+  - "fill {sx+37} {sy-16} {sz-1} {sx+37} {sy-14} {sz-1} minecraft:air"
+  - "fill {sx+38} {sy-15} {sz-1} {sx+38} {sy-13} {sz-1} minecraft:air"
+  - "fill {sx+39} {sy-14} {sz-1} {sx+39} {sy-12} {sz-1} minecraft:air"
+  - "fill {sx+40} {sy-13} {sz-1} {sx+40} {sy-11} {sz-1} minecraft:air"
+  - "fill {sx+41} {sy-12} {sz-1} {sx+41} {sy-10} {sz-1} minecraft:air"
+  - "fill {sx+42} {sy-11} {sz-1} {sx+42} {sy-9} {sz-1} minecraft:air"
+  - "fill {sx+43} {sy-10} {sz-1} {sx+43} {sy-8} {sz-1} minecraft:air"
+  - "fill {sx+44} {sy-9} {sz-1} {sx+44} {sy-7} {sz-1} minecraft:air"
+  - "fill {sx+45} {sy-8} {sz-1} {sx+45} {sy-6} {sz-1} minecraft:air"
+  - "fill {sx+46} {sy-7} {sz-1} {sx+46} {sy-5} {sz-1} minecraft:air"
+  - "fill {sx+47} {sy-6} {sz-1} {sx+47} {sy-4} {sz-1} minecraft:air"
+  - "fill {sx+48} {sy-5} {sz-1} {sx+48} {sy-3} {sz-1} minecraft:air"
+  - "setblock {sx+36} {sy-16} {sz-1} minecraft:wall_torch[facing=south]"
+  - "setblock {sx+42} {sy-10} {sz-1} minecraft:wall_torch[facing=south]"
+  # the bot: down in the pocket with what it had, and the server's respawn point there too
+  - "spawnpoint {bot} {sx+27} {sy-25} {sz-1}"
+  - "tp {bot} {sx+27} {sy-25} {sz-1}"
+own:   # the hut is the bot's build, as live's registry knew its base
+  - "{sx+44} {sy-4} {sz+10} {sx+48} {sy} {sz+14}"
+stats: [deaths, damage_taken, "mined:stone", walked]
+grader:
+  kind: milestones
+  required: [spawn, alive]
+  steps:
+    # up out of the rock: at ground height anywhere between the mine and the hut (the ground runs from sy+4 over the
+    # pocket down to sy-5 at the staircase's mouth; the pocket is at sy-25, the staircase below its mouth sy-6 and down)
+    - {name: out,   weight: 1, check: {kind: position, target_rel: [36, 0, 5], tolerance: 30, y_tolerance: 5}}
+    - {name: home,  weight: 2, check: {kind: position, target_rel: [46, -3, 12], tolerance: 4, y_tolerance: 2}}
+    - {name: spawn, weight: 4, check: {kind: respawn, min_from_spawn: 40, max_from_spawn: 53}}   # the hut's bed, not the pocket
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+max_turns: 16
+max_seconds: 900
+exec_timeout: 300
+tags: [tier-c, survival, prod, bed, stranded]

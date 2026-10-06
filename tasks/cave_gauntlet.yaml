@@ -1,0 +1,52 @@
+# Four fights in a row on Hard, in a torch-lit cave about 30 across (start situation `cavern`: ragged walls, a domed
+# roof, a few stone pillars): one zombie, then two, then a skeleton, then a zombie and a skeleton together. Each
+# wave is summoned once no mob of the last is left (`when:` holds the event, and every one after it, until the test
+# passes), so the waves come one at a time whatever the pace. What it measures is a fight carried through: picking
+# each one up as it arrives, eating between them, closing on an archer instead of trading at range, and not
+# finishing after the first kill. An iron sword (no armour) takes a zombie in about four hits; zombie hits on Hard
+# are 4.5-5 (prod.yaml), so the fourth wave on 20 health is not free. The shield sits in the off-hand (nothing in the
+# facade raises it yet). The odds gate refuses even the lone skeleton in this kit (bad_odds, 2026-10-05): with no way
+# out of the cave, taking the fight anyway (disengage_at=0) is part of the task.
+# Summoned with NBT, a mob gets neither default equipment (the skeleton's bow is given) nor Hard's zombie
+# reinforcement chance, so the kill counts are exact: 4 zombies and 2 skeletons is every wave dead.
+prompt: >-
+  You are in a cave and enemies are coming in four waves: one zombie, then two zombies, then a skeleton, then a
+  zombie and a skeleton together. Each wave arrives once the last one is dead. Kill every one of them and stay
+  alive. When all four waves are dead, say so and finish.
+inventory: {iron_sword: 1, cooked_porkchop: 19}
+world: {type: survival, seeds: [1], difficulty: hard}
+start: {situation: cavern, width: 30, depth: 20, time: day}
+setup:
+  - "item replace entity {bot} weapon.offhand with minecraft:shield"
+  # nothing in the cave but the waves (a bat, or a mob from a natural cave the fill cut through)
+  - "execute as {bot} at @s run kill @e[type=!minecraft:player,type=!minecraft:item,distance=..32]"
+  # wave 1: one zombie, 9 blocks east
+  - "summon minecraft:zombie {bx+9} {by} {bz} {{PersistenceRequired:1b,Tags:[\"gauntlet\"]}}"
+events:
+  - at: 5      # wave 2: two zombies, from the west and the south
+    when: "execute unless entity @e[tag=gauntlet]"
+    run:
+      - "summon minecraft:zombie {bx-9} {by} {bz} {{PersistenceRequired:1b,Tags:[\"gauntlet\"]}}"
+      - "summon minecraft:zombie {bx} {by} {bz+9} {{PersistenceRequired:1b,Tags:[\"gauntlet\"]}}"
+  - at: 5      # wave 3: a skeleton to the north
+    when: "execute unless entity @e[tag=gauntlet]"
+    run: "summon minecraft:skeleton {bx} {by} {bz-9} {{PersistenceRequired:1b,Tags:[\"gauntlet\"],equipment:{{mainhand:{{id:\"minecraft:bow\",count:1}}}}}}"
+  - at: 5      # wave 4: a zombie and a skeleton from opposite corners
+    when: "execute unless entity @e[tag=gauntlet]"
+    run:
+      - "summon minecraft:zombie {bx-7} {by} {bz+7} {{PersistenceRequired:1b,Tags:[\"gauntlet\"]}}"
+      - "summon minecraft:skeleton {bx+7} {by} {bz-7} {{PersistenceRequired:1b,Tags:[\"gauntlet\"],equipment:{{mainhand:{{id:\"minecraft:bow\",count:1}}}}}}"
+stats: [deaths, kills, "killed:zombie", "killed:skeleton", damage_taken, damage_dealt]
+grader:
+  kind: milestones
+  required: [wave_4_zombie, wave_4_skeleton, alive]
+  steps:
+    - {name: wave_1,  weight: 1, check: {kind: stat, name: "killed:zombie", min: 1}}
+    - {name: wave_2,  weight: 1, check: {kind: stat, name: "killed:zombie", min: 3}}
+    - {name: wave_3,  weight: 1, check: {kind: stat, name: "killed:skeleton", min: 1}}
+    - {name: wave_4_zombie,   weight: 1, check: {kind: stat, name: "killed:zombie", min: 4}}
+    - {name: wave_4_skeleton, weight: 1, check: {kind: stat, name: "killed:skeleton", min: 2}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+max_turns: 14
+max_seconds: 600
+tags: [tier-b, survival, combat, waves]

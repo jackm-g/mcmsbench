@@ -1,0 +1,12 @@
+{
+ "seed": 1,
+ "spawn": [
+  154,
+  70,
+  163
+ ],
+ "top_block": "grass_block",
+ "logs_within_radius": 63,
+ "radius": 32,
+ "version": "26.1"
+}

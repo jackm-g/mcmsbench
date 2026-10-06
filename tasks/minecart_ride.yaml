@@ -1,0 +1,26 @@
+# Only the ride: the track is built by setup. A minecart in the inventory, a powered start rail with a
+# launch block behind it; the bot has to place the cart, get in, and get out at the end.
+prompt: >-
+  There is a minecart track on the ground from START, x={ax}, y={ay}, z={az}, to END, x={ax+20}, y={ay},
+  z={az}. Put your minecart on the START rail, ride it to END, and finish the task standing at END.
+anchor: [4, 0, 14]
+inventory: {minecart: 1}
+setup:
+  - "setblock {ax-1} {ay} {az} minecraft:cobblestone"
+  - "fill {ax} {ay} {az} {ax+20} {ay} {az} minecraft:rail[shape=east_west]"
+  - "setblock {ax} {ay} {az} minecraft:powered_rail[shape=east_west]"
+  - "setblock {ax+7} {ay} {az} minecraft:powered_rail[shape=east_west]"
+  - "setblock {ax+14} {ay} {az} minecraft:powered_rail[shape=east_west]"
+  - "setblock {ax+19} {ay} {az} minecraft:powered_rail[shape=east_west]"
+  - "setblock {ax} {ay} {az+1} minecraft:redstone_torch"
+  - "setblock {ax+7} {ay} {az+1} minecraft:redstone_torch"
+  - "setblock {ax+14} {ay} {az+1} minecraft:redstone_torch"
+  - "setblock {ax+19} {ay} {az+1} minecraft:redstone_torch"
+grader:
+  kind: position
+  target: [24, 0, 14]
+  tolerance: 2.5
+  y_tolerance: 2
+max_turns: 5
+max_seconds: 240
+tags: [tier-b, mechanical, rails, procedures]

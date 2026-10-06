@@ -1,0 +1,24 @@
+# Two stone towers 24 high, 13 blocks apart, and a movement profile that neither bridges nor climbs
+# (no scaffolding, no towers, no digging). The drop is fatal, so the bot has to bridge by hand: a
+# block against the edge one level down, step onto it, repeat, reading every placement result.
+prompt: >-
+  You are on top of a stone tower. Base is the top of the other tower, 18 blocks east of you at
+  x={sx+9}, y={sy+24}, z={sz}. Get there alive and stand on it (within 2 blocks). The drop kills.
+  You have 16 cobblestone.
+inventory: {cobblestone: 16, bread: 2}
+start: {situation: pillar, height: 24, width: 5, offset: [-9, 0]}
+movements: {can_dig: false, towers: false, scaffolding: []}
+setup:
+  - "fill {sx+7} {sy-3} {sz-2} {sx+11} {sy+23} {sz+2} minecraft:stone"
+stats: [deaths, damage_taken, "used:cobblestone"]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: halfway, weight: 1, check: {kind: position, target_rel: [0, 24, 0], tolerance: 3, y_tolerance: 2}}
+    - {name: arrived, weight: 4, check: {kind: position, target_rel: [9, 24, 0], tolerance: 2, y_tolerance: 2}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+    - {name: unhurt,  weight: 1, hold: true, check: {kind: stat, name: damage_taken, max: 1}}
+max_turns: 8
+max_seconds: 300
+tags: [tier-d, navigation, building, hazard]

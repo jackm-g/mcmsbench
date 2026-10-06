@@ -1,0 +1,62 @@
+# Provision at the base, where carrying the food and eating are both asked for: milestone 5 of the player's project
+# failed twice on 2026-09-26 (004202: 7 of 8 bread, 005558: 6 of 8 bread, 51 minutes and $2.21 together). The
+# chain, all harness:
+#   - smelt('chicken', 7) put the chicken in, ran out of fuel and threw before takeInput: the 7 raw chicken were
+#     left in the furnace, and take_out on it failed twice ("containerToOpen is neither a block nor an entity":
+#     openContainer does not open furnaces). The chicken was never seen again.
+#   - With 8 bread made, provision(min_food=18) ate two of them (8 -> 7): "eat up to full health" was done
+#     with the food it was told to carry.
+#   - Next attempt, the travel reflex (maybeEat, food 14) ate a bread over a raw rabbit (7 -> 6). The rabbit was
+#     never cooked; the rest of the task, 30 minutes, went to waiting for five wheat plants to grow.
+#
+# Prod world, at a base 30 blocks east of the spawn (outside the zone): the state 004202 was in after its smelt.
+# A crafting table, a furnace holding 7 raw chicken and no fuel, and five farmland cells with three ripe wheat.
+# The bot carries 6 bread, 2 wheat, 3 spruce logs (its only fuel), a stone pickaxe and sword; food 14 (the
+# reflex eats at 14), health 18 (it regenerates only at food 18 or more). The wheat makes a seventh bread at
+# most, and getting to full health costs at least one food item, so bread alone ends at six or seven: the
+# chicken has to come out of the furnace and be cooked. Passing takes 8 or more cooked food carried at the end,
+# full health and no death.
+profile: prod
+prompt: >-
+  Run bot.provision() at the base: build or use a furnace near the house, turn wheat into bread and cook any
+  meat or potatoes you have, hunting a couple of animals nearby if you are short. End carrying at least 8
+  cooked food items (bread counts) and eat up to full health.
+inventory: {bread: 6, wheat: 2, beetroot: 1, wheat_seeds: 38, spruce_log: 3, stone_sword: 1, stone_pickaxe: 1,
+            cobblestone: 64, dirt: 16}
+start: {offset: [30, 0], time: 1000, weather: clear, food: 14}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+memories:
+  - {text: "Base: crafting table and furnace just north of here, farm plot just south with its water.", at: "{bx} {by} {bz}"}
+  - {text: "Smelted 7 raw chicken in the base furnace: it ran out of fuel part-way.", at: "{bx-2} {by} {bz-3}"}
+setup:
+  # the base, built around where the bot stands: a flat 13x13 of grass, clear above, filled below
+  - "fill {bx-6} {by} {bz-6} {bx+6} {by+4} {bz+6} minecraft:air"
+  - "fill {bx-6} {by-4} {bz-6} {bx+6} {by-2} {bz+6} minecraft:dirt replace air"
+  - "fill {bx-6} {by-1} {bz-6} {bx+6} {by-1} {bz+6} minecraft:grass_block"
+  - "setblock {bx+2} {by} {bz-3} minecraft:crafting_table"
+  # the furnace the smelt left: 7 raw chicken in the input, no fuel, nothing cooked
+  - "setblock {bx-2} {by} {bz-3} minecraft:furnace[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:chicken\",count:7}}]}}"
+  # the farm: water in the middle, five wet farmland cells around it, three with ripe wheat
+  - "setblock {bx} {by-1} {bz+3} minecraft:water"
+  - "fill {bx-2} {by-1} {bz+2} {bx+2} {by-1} {bz+2} minecraft:farmland[moisture=7]"
+  - "setblock {bx-2} {by} {bz+2} minecraft:wheat[age=7]"
+  - "setblock {bx} {by} {bz+2} minecraft:wheat[age=7]"
+  - "setblock {bx+1} {by} {bz+2} minecraft:wheat[age=7]"
+  # health 18: it comes back only at food 18 or more
+  - "damage {bot} 2 minecraft:generic"
+own:   # the base is the bot's own build, as live's registry knows it: the guard lets it break its furnace and crops
+  - "{bx-6} {by-1} {bz-6} {bx+6} {by+1} {bz+6}"
+check:   # the milestone's own check, as the project carries one live (there it counted bread only)
+  {kind: inventory, item: ["bread", "cooked_*", "baked_potato"], count: 8}
+grader:
+  kind: milestones
+  required: [carried, full, alive]
+  steps:
+    - {name: chicken, weight: 1, check: {kind: inventory, item: ["chicken", "cooked_chicken"], count: 4}}
+    - {name: carried, weight: 3, check: {kind: inventory, item: ["bread", "cooked_*", "baked_potato"], count: 8}}
+    - {name: full,    weight: 1, check: {kind: survived, min_health: 20}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+max_turns: 20
+max_seconds: 900
+exec_timeout: 240
+tags: [tier-c, survival, prod, food, smelting]

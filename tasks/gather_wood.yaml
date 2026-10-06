@@ -1,0 +1,10 @@
+prompt: >-
+  Gather at least 10 logs of any kind of wood. You have nothing; there are trees nearby.
+  Keep the logs in your inventory.
+inventory: {}
+world: {type: survival, seeds: [1]}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+grader: {kind: inventory, item: "*_log", count: 10}
+max_turns: 8
+max_seconds: 600
+tags: [tier-b, survival, gathering]

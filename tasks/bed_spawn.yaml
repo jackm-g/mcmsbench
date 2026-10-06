@@ -1,0 +1,31 @@
+# The bed that was never used: on the live server the bot died carrying a blue bed and respawned 700
+# blocks away. Here it carries a bed, its respawn point is 90 blocks east (setup), and a timed kill
+# comes 45 s in. Set the respawn point on the bed (bot.set_spawn(): by day, no sleep needed) and the
+# death brings it straight back to the site; skip it and it wakes up 90 blocks east, which the final
+# position check catches. Day, peaceful.
+prompt: >-
+  Make this spot your respawn point: place the bed you carry on the ground next to you and set your
+  spawn on it, then say "spawn set" in chat and stay near the bed for the next two minutes (use bot.wait
+  in a loop, checking your status between waits) so I can check it took.
+inventory: {red_bed: 1, cobblestone: 8}
+world: {type: survival, seeds: [1], border: 300}
+start: {time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt]}
+setup:
+  - "fill {sx+88} {sy-1} {sz-2} {sx+92} {sy-1} {sz+2} minecraft:stone"
+  - "fill {sx+88} {sy} {sz-2} {sx+92} {sy+2} {sz+2} minecraft:air"
+  - "spawnpoint {bot} {sx+90} {sy} {sz}"
+events:
+  - {at: 45, run: "kill {bot}"}
+stats: [deaths, damage_taken, walked]
+grader:
+  kind: milestones
+  required: [died, here]
+  steps:
+    - {name: bed,   weight: 1, check: {kind: placed, block: "*_bed", count: 1}}
+    - {name: died,  weight: 1, must: true, check: {kind: stat, name: deaths, min: 1}}
+    - {name: here,  weight: 4, hold: true, check: {kind: position, target_abs: spawn, tolerance: 8, y_tolerance: 4}}
+max_turns: 8
+max_seconds: 300
+exec_timeout: 150
+tags: [tier-b, survival, death, bed]

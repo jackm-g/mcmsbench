@@ -1,0 +1,20 @@
+# The player-words version of "get down": no blocks, one water bucket, a lethal drop and a clock.
+# Building down is not an option and a slow method fails the deadline; the water bucket drop
+# (bot.water_drop) is the intended move.
+prompt: >-
+  you're stuck way up on top of a pillar. do the water bucket drop to get down to the ground fast
+  without dying, then say you're down.
+inventory: {water_bucket: 1, bread: 2}
+start: {situation: pillar, height: 30, width: 3}
+stats: [deaths, damage_taken, "used:water_bucket"]
+grader:
+  kind: milestones
+  required: down
+  steps:
+    - {name: water_used, weight: 1, check: {kind: stat, name: "used:water_bucket", min: 1}}
+    - {name: down,       weight: 4, by: 90, check: {kind: position, target_abs: spawn, tolerance: 12, y_tolerance: 3}}
+    - {name: alive,      weight: 2, hold: true, check: {kind: survived}}
+    - {name: unhurt,     weight: 1, hold: true, check: {kind: stat, name: damage_taken, max: 1}}
+max_turns: 5
+max_seconds: 150
+tags: [tier-c, survival, situation, vague, bucket]

@@ -1,0 +1,21 @@
+prompt: >-
+  You have been dropped a long way from base, in terrain you have never seen. Base is on the
+  ground at x={sx}, z={sz}, about {dist} blocks from where you stand. Get there and stand on it
+  (within 3 blocks). The clock is tight: do not dawdle.
+inventory: {dirt: 32, cooked_beef: 4}
+world: {type: survival, seeds: [1], border: 800}
+start: {distance: 250, random_radius: 24, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: halfway,  weight: 1, check: {kind: position, target_abs: spawn, tolerance: 125, y_tolerance: 400}}
+    - {name: close,    weight: 1, check: {kind: position, target_abs: spawn, tolerance: 40, y_tolerance: 400}}
+    - {name: arrived,  weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: unharmed, weight: 1, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 420
+exec_timeout: 300
+tags: [tier-c, survival, navigation, long_travel]

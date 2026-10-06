@@ -1,0 +1,35 @@
+# The live server, 2026-09-23, by day: health 20 -> 14 -> 2 -> dead over three steps that only looked, a
+# stray twelve blocks off and nothing within eight, the harness saying it could not tell the cause. A
+# pillager (it does not burn in daylight) is summoned ten blocks away on flattened ground with a clear line of
+# sight; the task is to look, not to fight.
+# Passing is being alive at the end with health kept (10 or more): the archer noticed and dealt with, by cover or by
+# a fight that is won. Killing it is a bonus. (This eval once required the kill, because a summoned pillager never
+# fired: the crossbow was given in a tag 26.1 drops. Since it fires, a stone-sword charge from 7-10 blocks loses:
+# the reference ended at about 6 health with the pillager alive in 3 of 3 runs, anthropic-0926 follow-up; and the
+# reflex takes cover from an archer when no armour is worn.)
+prompt: >-
+  Look around and report what you see: call bot.survey() and bot.entities(32), then say what you found and
+  finish. Do not go anywhere.
+inventory: {stone_sword: 1, cooked_beef: 3}
+world: {type: survival, seeds: [1], difficulty: normal}
+start: {time: day}
+setup:
+  - "fill {sx-12} {sy-1} {sz-12} {sx+12} {sy-1} {sz+12} minecraft:dirt"
+  - "fill {sx-12} {sy} {sz-12} {sx+12} {sy+4} {sz+12} minecraft:air"
+  # nothing but the pillager shoots: a natural skeleton 26 blocks off was in one run
+  - "execute as {bot} at @s run kill @e[type=!minecraft:player,type=!minecraft:item,distance=..64]"
+  # summoned with NBT, a mob gets no default equipment: the crossbow must be given, or it never fires (2026-09-24, two minutes, no damage).
+  # 26.1 takes it as `equipment:{mainhand:...}`: the old HandItems tag is dropped without a word (anthropic-0926: no shot in any run)
+  - "summon minecraft:pillager {sx+10} {sy} {sz} {{PersistenceRequired:1b,equipment:{{mainhand:{{id:\"minecraft:crossbow\",count:1}}}}}}"
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, "killed:pillager", walked]
+grader:
+  kind: milestones
+  required: [alive, kept]
+  steps:
+    - {name: alive, weight: 3, hold: true, check: {kind: survived}}
+    - {name: kept,  weight: 2, check: {kind: survived, min_health: 10}}
+    - {name: dealt, weight: 1, check: {kind: stat, name: "killed:pillager", min: 1}}
+max_turns: 6
+max_seconds: 240
+tags: [tier-b, survival, combat, ranged, protocol]

@@ -1,0 +1,24 @@
+# A day job that runs into the night: the gathering takes longer than the minute of daylight left, so
+# dusk falls mid-task out in the open. What it measures is survival under the curfew (agent/curfew.py):
+# the harness gets the bot enclosed at nightfall whatever the progress, waits for dawn with the task
+# clock stopped, and hands the task back. Passing takes all three: alive, the logs, and a night lived
+# through (a run that finishes before dark ends at dusk and misses `morning`).
+prompt: >-
+  Gather at least 16 logs of any kind of wood and keep them in your inventory. You have nothing;
+  there are trees nearby.
+inventory: {}
+world: {type: survival, seeds: [1], daylight: true, difficulty: normal}
+start: {time: 11600}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, kills, walked]
+grader:
+  kind: milestones
+  required: [alive, logs, morning]
+  steps:
+    - {name: alive,   weight: 3, hold: true, check: {kind: survived}}
+    - {name: logs,    weight: 2, check: {kind: inventory, item: "*_log", count: 16}}
+    - {name: morning, weight: 1, check: {kind: world_time, between: [23000, 6000]}}
+max_turns: 20
+max_seconds: 900
+exec_timeout: 150
+tags: [tier-b, survival, night, curfew]

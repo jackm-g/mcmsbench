@@ -1,0 +1,28 @@
+# Branch mining at diamond level with no X-ray: two veins planted where a branch-mining pass with
+# 4-block spacing uncovers them, a lava pocket under the floor of the main tunnel to be plugged.
+prompt: >-
+  You are deep underground at diamond level with an iron pickaxe. Branch-mine from here heading east:
+  a main tunnel with short side branches every few blocks, mining any diamond ore you uncover. Get at
+  least one diamond into your inventory. Watch out for lava.
+inventory: {iron_pickaxe: 1, torch: 16, cobblestone: 24, bread: 4}
+world: {type: survival, seeds: [1], border: 200}
+start: {situation: cave, depth: 118, time: day}
+xray: false
+movements: {can_dig: true, towers: true, scaffolding: [cobblestone]}
+setup:
+  - "fill {bx+4} {by} {bz+3} {bx+4} {by} {bz+4} minecraft:deepslate_diamond_ore"
+  - "fill {bx+10} {by} {bz+1} {bx+10} {by+1} {bz+1} minecraft:deepslate_diamond_ore"
+  - "setblock {bx+7} {by-1} {bz} minecraft:lava"
+stats: [deaths, damage_taken, "mined:deepslate", "mined:deepslate_diamond_ore"]
+grader:
+  kind: milestones
+  required: diamond
+  steps:
+    - {name: dug,     weight: 1, check: {kind: stat, name: "mined:deepslate", min: 16}}
+    - {name: ore,     weight: 2, check: {kind: stat, name: "mined:deepslate_diamond_ore", min: 1}}
+    - {name: diamond, weight: 4, check: {kind: inventory, item: diamond, count: 1}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 480
+exec_timeout: 240
+tags: [tier-c, survival, mining, procedures, vague]

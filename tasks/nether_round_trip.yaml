@@ -1,0 +1,32 @@
+# There and back: portal, quartz on the other side, home. The landing is a prepared netherrack room
+# at the scaled coordinates ({nx}, {nz}) with a lit portal (so the trip links to it) and quartz ore in
+# the open. What goes wrong: forgetting to step out of the arrival portal before re-entering, mixing up
+# which world the coordinates belong to, coming back with the quartz still in the ground.
+prompt: >-
+  Build a nether portal, go through it, mine at least 8 nether quartz on the other side, come back through
+  the portal, and stand on base at x={sx}, z={sz} (within 3 blocks) with the quartz in your inventory.
+anchor: [8, 0, 8]
+inventory: {obsidian: 14, flint_and_steel: 1, iron_pickaxe: 1, cobblestone: 8, bread: 4}
+setup:
+  - "execute in minecraft:the_nether run forceload add {nx-24} {nz-24} {nx+24} {nz+24}"
+  - "execute in minecraft:the_nether run fill {nx-9} 89 {nz-9} {nx+9} 99 {nz+9} minecraft:netherrack"
+  - "execute in minecraft:the_nether run fill {nx-8} 91 {nz-8} {nx+8} 98 {nz+8} minecraft:air"
+  - "execute in minecraft:the_nether run fill {nx-1} 90 {nz} {nx+2} 94 {nz} minecraft:obsidian"
+  - "execute in minecraft:the_nether run fill {nx} 91 {nz} {nx+1} 93 {nz} minecraft:nether_portal[axis=x]"
+  - "execute in minecraft:the_nether run fill {nx+5} 91 {nz-6} {nx+7} 93 {nz-4} minecraft:nether_quartz_ore"
+  - "execute in minecraft:the_nether run fill {nx-7} 91 {nz+4} {nx-5} 93 {nz+6} minecraft:nether_quartz_ore"
+stats: [deaths, damage_taken, "dimension:the_nether", "dimension:overworld", "mined:nether_quartz_ore"]
+grader:
+  kind: milestones
+  required: [back, home]
+  steps:
+    - {name: lit,    weight: 1, check: {kind: placed, block: nether_portal, count: 6}}
+    - {name: there,  weight: 2, must: true, check: {kind: stat, name: "dimension:the_nether", min: 1}}
+    - {name: quartz, weight: 3, check: {kind: inventory, item: quartz, count: 8}}
+    - {name: back,   weight: 2, check: {kind: stat, name: "dimension:overworld", min: 1}}
+    - {name: home,   weight: 2, check: {kind: position, target_abs: spawn, tolerance: 3, y_tolerance: 3}}
+    - {name: alive,  weight: 1, hold: true, check: {kind: survived}}
+max_turns: 12
+max_seconds: 480
+exec_timeout: 150
+tags: [tier-d, nether, mechanical, plan-keeping]

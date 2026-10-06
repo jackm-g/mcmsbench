@@ -1,0 +1,99 @@
+# MCMSBench arenas. `docker compose -f infra/docker-compose.yml up -d arena` for the flat arena (26.1.2; clients
+# connect with version "26.1", protocol 775). The survival arenas are started and stopped by the runner.
+# `docker compose --profile vision up -d arena-1214` for a 1.21.4 arena where
+# prismarine-viewer renders blocks correctly.
+x-arena: &arena
+  image: itzg/minecraft-server
+  tty: true
+  stdin_open: true
+  environment: &arena-env
+    EULA: "TRUE"
+    TYPE: VANILLA
+    MEMORY: 2G
+    ONLINE_MODE: "false"
+    ENABLE_RCON: "true"
+    RCON_PASSWORD: ${RCON_PASSWORD:-mcmsbench-rcon}
+    RCON_PORT: 25575
+    LEVEL_TYPE: minecraft:flat
+    GENERATOR_SETTINGS: '{"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}'
+    SEED: "mcmsbench"
+    MODE: survival
+    DIFFICULTY: peaceful
+    SPAWN_PROTECTION: 0
+    VIEW_DISTANCE: 8
+    MAX_PLAYERS: 8
+    ENABLE_COMMAND_BLOCK: "false"
+    SNOOPER_ENABLED: "false"
+    ALLOW_FLIGHT: "true"
+    OVERRIDE_SERVER_PROPERTIES: "true"
+
+services:
+  arena:
+    <<: *arena
+    container_name: mcmsbench-arena
+    environment:
+      <<: *arena-env
+      VERSION: "26.1.2"
+    ports:
+      - "25565:25565"
+      - "25575:25575"
+    volumes:
+      - ./data-26.1.2:/data
+
+  # Survival arena: real terrain, one seed at a time. Worlds are generated once by
+  # `mcmsbench world prepare --seed N`, tarred into infra/worlds/, and restored per trial.
+  arena-survival:
+    <<: *arena
+    container_name: mcmsbench-arena-survival
+    environment:
+      <<: *arena-env
+      VERSION: "26.1.2"
+      LEVEL_TYPE: minecraft:normal
+      GENERATOR_SETTINGS: ""
+      SEED: ${SURVIVAL_SEED:-1}
+      # Per task (WorldSpec.spawn_protection; the prod profile uses 16 like the live server). The reset passes it
+      # and `up -d` recreates the container when it changed; it only bites because ops.json is not empty.
+      SPAWN_PROTECTION: ${SURVIVAL_SPAWN_PROTECTION:-0}
+      VIEW_DISTANCE: 6
+      # Keep this at the vanilla default: max-world-size clamps the border to +/-N around
+      # (0,0) regardless of the border centre, and a spawn beyond it is lethal. It is set
+      # explicitly because itzg only rewrites properties for env vars that are present.
+      MAX_WORLD_SIZE: 29999984
+    ports:
+      - "25567:25565"
+      - "25577:25575"
+    volumes:
+      - ./data-survival:/data
+
+  # A second survival arena for a run alongside the first (`--slot 2`, mcmsbench.toml): same image and worlds,
+  # its own ports and data directory.
+  arena-survival-2:
+    <<: *arena
+    container_name: mcmsbench-arena-survival-2
+    environment:
+      <<: *arena-env
+      VERSION: "26.1.2"
+      LEVEL_TYPE: minecraft:normal
+      GENERATOR_SETTINGS: ""
+      SEED: ${SURVIVAL_SEED:-1}
+      SPAWN_PROTECTION: ${SURVIVAL_SPAWN_PROTECTION:-0}
+      VIEW_DISTANCE: 6
+      MAX_WORLD_SIZE: 29999984
+    ports:
+      - "25568:25565"
+      - "25578:25575"
+    volumes:
+      - ./data-survival-2:/data
+
+  arena-1214:
+    <<: *arena
+    container_name: mcmsbench-arena-1214
+    profiles: ["vision"]
+    environment:
+      <<: *arena-env
+      VERSION: "1.21.4"
+    ports:
+      - "25566:25565"
+      - "25576:25575"
+    volumes:
+      - ./data-1.21.4:/data

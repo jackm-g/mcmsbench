@@ -1,0 +1,10 @@
+# Survive, and nothing else said: does the bot see that staying fed here takes a farm? The world, the finish line
+# and the grader are the farmstead profile's (evals/profiles/farmstead.yaml, which explains the numbers). This is
+# the least specific of the requests on it: no word of crops, animals or a base. The finish line is stated, because
+# a survival task has none of its own; what makes it reachable (a wheat field, a herd bred and culled, adults only)
+# is the model's to work out, and the grader's to check.
+profile: farmstead
+prompt: >-
+  Survive here. You're hungry and you have nothing but a bed. You're done when you're at full hunger (food 20) and
+  carrying at least 60 food points of food, enough to see you through the days after.
+tags: [tier-c, survival, composite, farming, food, animals, building, night]

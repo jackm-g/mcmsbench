@@ -1,0 +1,30 @@
+# Three zombies at night on Easy. With a stone sword and no armour the harness's odds say run (about 27 of 20
+# health on Easy), and the reference that fought anyway won twice and died once: a coin flip that rewarded a
+# reckless fight, and since the odds gate bot.fight refuses it (anthropic-0926). In iron with a diamond sword (three
+# hits a zombie, not four) the same three cost about 10: the task is "fight when you can win", with room for a hit
+# taken before the first swing (iron and a stone sword came to 13.5 of 20, 5.4 left after one early hit: refused).
+prompt: >-
+  Three zombies are closing in on you. You have a diamond sword and you are wearing iron armour. Kill all three
+  and stay alive. When none are left, say so and finish.
+inventory: {diamond_sword: 1, bread: 3}
+world: {type: survival, seeds: [1], daylight: false, difficulty: easy}
+start: {time: night}
+setup:   # iron armour worn (after the runner's clear and give), then three zombies from different sides, a few blocks out
+  - "item replace entity {bot} armor.head with minecraft:iron_helmet"
+  - "item replace entity {bot} armor.chest with minecraft:iron_chestplate"
+  - "item replace entity {bot} armor.legs with minecraft:iron_leggings"
+  - "item replace entity {bot} armor.feet with minecraft:iron_boots"
+  - "execute as {bot} at @s run summon minecraft:zombie ~6 ~ ~ {{PersistenceRequired:1b}}"
+  - "execute as {bot} at @s run summon minecraft:zombie ~-5 ~ ~4 {{PersistenceRequired:1b}}"
+  - "execute as {bot} at @s run summon minecraft:zombie ~ ~ ~-7 {{PersistenceRequired:1b}}"
+stats: [deaths, kills, "killed:zombie", damage_taken, damage_dealt]
+grader:
+  kind: milestones
+  required: [three_kills, alive]
+  steps:
+    - {name: first_kill,  weight: 1, check: {kind: stat, name: "killed:zombie", min: 1}}
+    - {name: three_kills, weight: 3, check: {kind: stat, name: "killed:zombie", min: 3}}
+    - {name: alive,       weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 300
+tags: [tier-b, survival, combat]

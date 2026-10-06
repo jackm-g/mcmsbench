@@ -1,0 +1,21 @@
+prompt: >-
+  Build a small house near where you are standing. You have nothing: gather what you need,
+  craft tools if they help, and level or clear the ground if you must. The house needs
+  walls all the way round, a roof, a doorway or door, and room to stand inside — at least
+  5x5 on the outside. Build it within about 30 blocks of where you started.
+inventory: {}
+world: {type: survival, seeds: [1]}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+grader:
+  kind: milestones
+  required: house
+  steps:
+    - {name: wood,     weight: 1, check: {kind: inventory, item: "*_log", count: 1}}
+    - {name: table,    weight: 1, check: {kind: have_or_placed, item: crafting_table}}
+    - {name: tools,    weight: 1, check: {kind: inventory, item: ["*_pickaxe", "*_axe"], count: 1}}
+    - {name: stone,    weight: 1, check: {kind: inventory, item: cobblestone, count: 1}}
+    - {name: site,     weight: 1, check: {kind: level_site, tolerance: 1}}
+    - {name: house,    weight: 4, check: {kind: structure, min_footprint: 25, min_interior: 8, min_placed: 40, contained: false}}
+max_turns: 40
+max_seconds: 1800
+tags: [tier-c, survival, composite]

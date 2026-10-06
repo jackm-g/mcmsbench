@@ -1,0 +1,56 @@
+# The live server, 2026-09-25, three farm tasks lost to water:
+# - 22:03 "check on the wheat to make sure it is hydrated": 40 steps and $1.12. Eight failed scoops (one from flowing
+#   water), a pour that threw "Invalid item object in equip", and two corrections in chat from fpsandy93: the water
+#   has to be at the farmland's level, then it was too high.
+# - 21:38 "make a bed ... then work on the farm": a pour into dirt refused, then stuck in an underwater pocket
+#   (stuck goto x4) until the step budget ran out. Unfinished.
+# - 22:53 the -700 farm: three scoops failed with "still holding an empty bucket" before a pond 12 blocks off worked.
+# Vanilla hydrates farmland from water within 4 blocks at its own level (or one above), never below; the live farm's
+# centre hole held its water one block too low, as this one does.
+#
+# The bot stands by its own wheat plot (5x3, 14 crops, farmland dry), whose centre hole holds a water source one
+# block below the farmland. A 3x3 pond lies 9 blocks east with its surface one block below the ground. It carries an
+# empty bucket. Passing takes the crops' farmland hydrated after a burst of random ticks (the hydrated grader), with
+# the crops still standing. The biome is the terrain's own: freezing is farm_in_snow's lesson, not this one's.
+profile: prod
+world: {biome: null}
+prompt: >-
+  Check on the wheat farm just south of you and make sure all of its farmland is hydrated, so the crops keep
+  growing. Leave the crops in place.
+inventory: {bucket: 1, stone_shovel: 1, stone_pickaxe: 1, dirt: 16, cobblestone: 16, bread: 4}
+start: {offset: [30, 0], time: 1000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+memories:
+  - {slot: home, text: "the wheat plot and the bed", at: "{bx} {by} {bz}", ago: 7200}
+  - {text: "Wheat plot just south of here (5x3) with a water hole in the middle; a pond a few blocks east.",
+     at: "{bx} {by} {bz+4}", ago: 3600}
+setup:
+  - "fill {bx-8} {by} {bz-6} {bx+14} {by+4} {bz+10} minecraft:air"
+  - "fill {bx-8} {by-5} {bz-6} {bx+14} {by-2} {bz+10} minecraft:dirt"
+  - "fill {bx-8} {by-1} {bz-6} {bx+14} {by-1} {bz+10} minecraft:grass_block"
+  # the plot: dry farmland under young wheat, the centre a hole with its water one block below the farmland
+  - "fill {bx-2} {by-1} {bz+3} {bx+2} {by-1} {bz+5} minecraft:farmland[moisture=0]"
+  - "fill {bx-2} {by} {bz+3} {bx+2} {by} {bz+5} minecraft:wheat[age=2]"
+  - "setblock {bx} {by} {bz+4} minecraft:air"
+  - "setblock {bx} {by-1} {bz+4} minecraft:air"
+  - "setblock {bx} {by-2} {bz+4} minecraft:water"
+  # the pond: 3x3 sources, the surface a block below the ground
+  - "fill {bx+9} {by-1} {bz+3} {bx+11} {by-1} {bz+5} minecraft:air"
+  - "fill {bx+9} {by-2} {bz+3} {bx+11} {by-2} {bz+5} minecraft:water"
+  # the bed the respawn point goes on (the spawn errand takes it at hand)
+  - "setblock {bx-4} {by} {bz-4} minecraft:white_bed[facing=north,part=head]"
+  - "setblock {bx-4} {by} {bz-3} minecraft:white_bed[facing=north,part=foot]"
+own:   # the plot, the bed and the ground round them are the bot's own, as live's registry knows them
+  - "{bx-8} {by-2} {bz-6} {bx+14} {by+1} {bz+10}"
+grader:
+  kind: milestones
+  required: [watered, alive]
+  steps:
+    - {name: standing, weight: 1, hold: true, check: {kind: blocks, block: wheat, min: 12}}
+    - {name: watered,  weight: 4, check: {kind: hydrated, crop: wheat, min: 12, ticks: 400, wait: 12, restore: 3}}
+    - {name: alive,    weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions: validated by the unit tests and LLM trials
+max_turns: 16
+max_seconds: 600
+exec_timeout: 240
+tags: [tier-c, survival, prod, farming, water]

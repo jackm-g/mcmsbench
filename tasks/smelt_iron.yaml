@@ -1,0 +1,17 @@
+prompt: >-
+  Turn your raw iron into iron ingots: you will need a furnace (8 cobblestone, crafted at a crafting
+  table) and fuel. End with at least 5 iron ingots in your inventory.
+inventory: {cobblestone: 16, raw_iron: 5, coal: 4, oak_planks: 8}
+world: {type: survival, seeds: [1]}
+start: {time: day}
+stats: [deaths, "crafted:furnace", "custom:interact_with_furnace"]
+grader:
+  kind: milestones
+  required: ingots
+  steps:
+    - {name: table,   weight: 1, check: {kind: have_or_placed, item: crafting_table}}
+    - {name: furnace, weight: 1, check: {kind: have_or_placed, item: furnace}}
+    - {name: ingots,  weight: 3, check: {kind: inventory, item: iron_ingot, count: 5}}
+max_turns: 8
+max_seconds: 300
+tags: [tier-b, survival, smelting]

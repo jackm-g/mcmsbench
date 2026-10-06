@@ -1,0 +1,19 @@
+prompt: >-
+  It is nightfall and hostile mobs spawn in the dark. Survive until morning without dying.
+  You may dig in, build a shelter, or do whatever keeps you alive; you have no weapons.
+  When it is morning (the sun is up), say so and finish.
+inventory: {}
+world: {type: survival, seeds: [1], daylight: true, difficulty: normal}
+start: {time: night}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, kills, walked]
+grader:
+  kind: milestones
+  required: [alive, morning]
+  steps:
+    - {name: alive,   weight: 3, hold: true, check: {kind: survived}}
+    - {name: morning, weight: 2, check: {kind: world_time, between: [23000, 6000]}}
+max_turns: 25
+max_seconds: 1200
+curfew: false   # the model's own night handling; night_falls_mid_task measures the harness curfew
+tags: [tier-b, survival, night]

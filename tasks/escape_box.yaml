@@ -1,0 +1,19 @@
+prompt: >-
+  You wake up walled in on every side, holding only a wooden pickaxe. Base is on the ground at x={sx},
+  z={sz}. Get out and go stand on base (within 3 blocks).
+inventory: {wooden_pickaxe: 1}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: enclosed, distance: 80, random_radius: 16, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, "mined:stone"]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: broke_out, weight: 1, check: {kind: stat, name: "mined:stone", min: 1}}
+    - {name: arrived,   weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,     weight: 1, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 420
+exec_timeout: 200
+tags: [tier-c, survival, orientation, situation]

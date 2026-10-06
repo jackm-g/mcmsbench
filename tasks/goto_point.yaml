@@ -1,0 +1,6 @@
+prompt: "Walk to x={ax}, y={ay}, z={az} and stand on that block. Stop when you are there."
+anchor: [26, 0, 26]
+inventory: {}
+grader: {kind: position, target: [26, 0, 26], tolerance: 1.0}
+max_turns: 5
+tags: [tier-a, navigation]

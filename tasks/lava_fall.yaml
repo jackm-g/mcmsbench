@@ -1,0 +1,25 @@
+# A bounded lava job: one bucket, a stone ledge raised by setup, and a fall that has to reach a
+# named spot. The catch is sequencing: pour from where you can still walk away (lava creeps 1 block
+# per 1.5 s), get off the ledge, then wait for it to arrive before verifying.
+prompt: >-
+  Make a lava waterfall off the stone ledge here. The lava should start on top of the ledge at
+  x={ax}, y={ay+4}, z={az}, pour over its east edge, and reach the ground at x={ax+4}, y={ay}, z={az}.
+  You have one lava bucket. Do not burn yourself.
+anchor: [10, 0, 16]
+inventory: {lava_bucket: 1, cobblestone: 16, bread: 2}
+movements: {towers: true, scaffolding: [cobblestone]}
+setup:
+  - "fill {ax-2} {ay} {az-2} {ax+2} {ay+3} {az+2} minecraft:stone"
+stats: [deaths, damage_taken, "used:lava_bucket"]
+grader:
+  kind: milestones
+  required: reaches_ground
+  steps:
+    - {name: poured,         weight: 1, check: {kind: stat, name: "used:lava_bucket", min: 1}}
+    - {name: on_ledge,       weight: 1, check: {kind: liquid_path, liquid: lava, from: [10, 4, 16], to: [10, 4, 16]}}
+    - {name: reaches_ground, weight: 4, check: {kind: liquid_path, liquid: lava, from: [10, 4, 16], to: [14, 0, 16]}}
+    - {name: alive,          weight: 2, hold: true, check: {kind: survived}}
+    - {name: unhurt,         weight: 1, hold: true, check: {kind: stat, name: damage_taken, max: 3}}
+max_turns: 8
+max_seconds: 300
+tags: [tier-c, mechanical, lava, hazard]

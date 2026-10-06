@@ -1,0 +1,36 @@
+# Night at the world spawn, where the ground cannot be dug: 164001 and 164122 on 2026-09-24 launched at MC
+# 20647 with the bot at the spawn and no weapon. The night intervention failed ("nothing held... ground that
+# cannot be dug"), secure_night had to walk out of the spawn protection to dig in and left open cells, and
+# there were three zombie deaths in two minutes. VW 232153 went the same way. The live night intervention
+# failed 15 times in 43, most of them at the spawn, on water or on snow.
+#
+# The bot starts at the world spawn at night with nothing, in the prod world (Hard, strays, 16 blocks where
+# nothing sticks), with two zombies already near. The task is the one the live server was given, travel by
+# daylight to a site, so the right order is the harness's: secure the night first (outside the zone), then
+# walk at dawn. Passing takes all three: no deaths, the morning, and standing on the pad 100 blocks west.
+profile: prod
+prompt: >-
+  Travel by daylight to the stone pad at ({sx-100}, {sy-1}, {sz}) and finish standing on it.
+inventory: {}
+start: {time: 14000}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the site: a 5x5 stone pad at the spawn's height, cleared above, on a plinth down to the ground if it is lower
+  - "fill {sx-102} {sy-12} {sz-2} {sx-98} {sy-2} {sz+2} minecraft:stone replace air"
+  - "fill {sx-102} {sy-1} {sz-2} {sx-98} {sy-1} {sz+2} minecraft:stone"
+  - "fill {sx-102} {sy} {sz-2} {sx-98} {sy+2} {sz+2} minecraft:air"
+  # the nest: two zombies already about, 6..14 blocks off; Hard's own spawning brings the rest
+  - "summon minecraft:zombie {sx} {sy+1} {sz} {{Tags:[\"nest\"],PersistenceRequired:1b}}"
+  - "summon minecraft:zombie {sx} {sy+1} {sz} {{Tags:[\"nest\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx} {sz} 6 14 false @e[tag=nest]"
+grader:
+  kind: milestones
+  required: [alive, morning, on_site]
+  steps:
+    - {name: alive,   weight: 4, hold: true, check: {kind: survived}}
+    - {name: morning, weight: 1, check: {kind: world_time, between: [23000, 12000]}}
+    - {name: on_site, weight: 3, hold: true, check: {kind: position, target_rel: [-100, 0], tolerance: 4, y_tolerance: 3}}
+max_turns: 16
+max_seconds: 900
+exec_timeout: 240
+tags: [tier-c, survival, prod, night, spawn]

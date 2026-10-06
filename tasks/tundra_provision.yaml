@@ -1,0 +1,50 @@
+# Food in the tundra: two live deaths were starvation (081251 at (27, 81, 174): food 0, only a trader llama
+# in range; 111859: food 4 to 0 during find_far('sweet_berry_bush')). "no animals within 48 blocks" came back
+# 14 times, 6 food interventions failed, and findFar was handed animal names as if they were blocks 9 times
+# ("findFar: unknown block name(s): cow,pig,sheep,chicken": 173511, 175156, 184718, 202259, 081251, 111859,
+# 011205). The provision milestones took retries (173511 then 175156, 011205 then 013232).
+#
+# The request is 011205's: "End carrying at least 8 cooked food." Prod world: no livestock within 128 blocks
+# of the spawn, except what this task puts out. Rabbits are near (fast, and a rabbit drops at most one raw
+# rabbit), and a flock of chickens is 80 blocks west, beyond the provision errand's 48-block hunt. The bot
+# starts hungry (food 4, no saturation) with a sword, cobblestone for a furnace and wood for a table and fuel;
+# the spawn protection stops a furnace or a table going down at the spawn. Passing takes the cooked food and
+# no death.
+profile: prod
+prompt: >-
+  You're nearly starving and there's little to hunt around here. Get fed, and end carrying at least 8 cooked
+  food.
+inventory: {stone_sword: 1, cobblestone: 8, oak_log: 6}
+start: {time: 1000, weather: clear, food: 4}
+movements: {can_dig: true, towers: true, scaffolding: [dirt]}   # not the cobblestone: it is the furnace
+setup:
+  # rabbits: 4 blocks to 14 around the spawn
+  - "summon minecraft:rabbit {sx} {sy+1} {sz} {{Tags:[\"near\"],PersistenceRequired:1b}}"
+  - "summon minecraft:rabbit {sx} {sy+1} {sz} {{Tags:[\"near\"],PersistenceRequired:1b}}"
+  - "summon minecraft:rabbit {sx} {sy+1} {sz} {{Tags:[\"near\"],PersistenceRequired:1b}}"
+  - "summon minecraft:rabbit {sx} {sy+1} {sz} {{Tags:[\"near\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx} {sz} 3 14 false @e[tag=near]"
+  # the chickens: summoned where the chunks are loaded, spread onto the ground 80 blocks west (land: the
+  # pad of night_in_spawn_protection is 100 west)
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"far\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx-80} {sz} 2 6 false @e[tag=far]"
+grader:
+  kind: milestones
+  required: [alive, cooked]
+  steps:
+    - {name: meat,   weight: 1, check: {kind: inventory, item: ["rabbit", "chicken", "porkchop", "beef", "mutton", "cod", "salmon", "cooked_*"], count: 4}}
+    - {name: cooked, weight: 3, check: {kind: inventory, item: ["cooked_*"], count: 8}}
+    - {name: alive,  weight: 3, hold: true, check: {kind: survived}}
+max_turns: 20
+max_seconds: 900
+exec_timeout: 240
+tags: [tier-c, survival, prod, food]

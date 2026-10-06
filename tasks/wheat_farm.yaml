@@ -1,0 +1,44 @@
+# A build that has to *work*: seven wheat in a row and a lever-operated dispenser flush. The grader
+# flips the lever by RCON and looks for the seeds the water knocked loose. Orientation is the trap:
+# a dispenser faces the player who places it, so where you stand decides where the water goes.
+prompt: >-
+  Make a small automatic wheat farm along the row from x={ax} to x={ax+6} at z={az}: till the ground
+  and plant wheat on all 7 blocks, and set up a lever-operated flush so that flipping the lever makes a
+  dispenser pour water over the crops and washes them out (that is the harvest). Leave the lever off.
+anchor: [10, 0, 16]
+inventory: {wooden_hoe: 1, wheat_seeds: 16, dispenser: 1, lever: 1, water_bucket: 1, cobblestone: 8, redstone: 4}
+stats: [deaths, "used:wooden_hoe", "used:wheat_seeds"]
+grader:
+  kind: milestones
+  required: [planted, flush]
+  steps:
+    - name: tilled     # the floor layer is below the scanned volume: ask the server
+      weight: 1
+      check:
+        kind: functional
+        steps:
+          - {assert: "execute if block {ax} {ay-1} {az} minecraft:farmland"}
+          - {assert: "execute if block {ax+3} {ay-1} {az} minecraft:farmland"}
+          - {assert: "execute if block {ax+6} {ay-1} {az} minecraft:farmland"}
+    - {name: planted,   weight: 2, check: {kind: blocks, block: wheat, min: 7}}
+    - {name: dispenser, weight: 1, check: {kind: placed, block: dispenser}}
+    - {name: lever,     weight: 1, check: {kind: placed, block: lever}}
+    - name: flush
+      weight: 4
+      check:
+        kind: functional
+        steps:
+          - {do: "kill @e[type=item,x={x0},y={y0-2},z={z0},dx=40,dy=30,dz=40]"}
+          - {do: "setblock {find:lever} {state:lever|powered=false}"}
+          - {poke: "{find:dispenser}"}          # a flip by setblock never updates a dispenser powered through a block
+          - {wait: 1}
+          - {do: "setblock {find:lever} {state:lever|powered=true}"}
+          - {poke: "{find:dispenser}"}
+          - {wait: 5}
+          - {assert: "execute if entity @e[type=item,x={x0},y={y0-2},z={z0},dx=40,dy=30,dz=40,nbt={{Item:{{id:\"minecraft:wheat_seeds\"}}}}]"}
+        cleanup:
+          - "setblock {find:lever} {state:lever|powered=false}"
+          - "kill @e[type=item,x={x0},y={y0-2},z={z0},dx=40,dy=30,dz=40]"
+max_turns: 10
+max_seconds: 420
+tags: [tier-d, mechanical, redstone, farming]

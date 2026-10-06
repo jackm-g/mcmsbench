@@ -1,0 +1,18 @@
+prompt: >-
+  Build this exact structure with its minimum corner at x={ax}, y={ay}, z={az} (x increases along
+  each row of characters, z increases with each row, y with each layer):
+  Layer y+0 (ground): "PPP" / "P.P" / "PPP"   Layer y+1: "PGP" / "?.?" / "PGP"   Layer y+2: "PPP" / "PPP" / "PPP"
+  P = oak_planks, G = glass, . = must stay air, ? = leave open (a doorway). Nothing else in the area.
+anchor: [12, 0, 12]
+inventory: {oak_planks: 32, glass: 4}
+grader:
+  kind: schematic
+  at: [12, 0, 12]
+  legend: {P: oak_planks, G: glass}
+  layers:
+    - ["PPP", "P.P", "PPP"]
+    - ["PGP", "?.?", "PGP"]
+    - ["PPP", "PPP", "PPP"]
+max_turns: 6
+max_seconds: 240
+tags: [tier-b, building, schematic]

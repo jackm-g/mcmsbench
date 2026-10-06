@@ -1,0 +1,42 @@
+# farm_in_tundra without the help: 13 live farm requests, none done (100848, 111859, 120228, 124159, 115028,
+# 022919, 023625, VW 010900). Tilling under a snow layer gave nothing, "no craftable recipe for wooden_hoe"
+# came back five times (003454, 100848, 111859) when the table was left behind, the water was under ice,
+# and there was no bucket. 124159 was "Use torches to melt water near your farm".
+#
+# Prod world (snowy plains, random ticks at vanilla speed, spawn protection). East of the spawn, past the
+# zone, is a flattened field of grass under a snow layer with a frozen river: water under a sheet of ice, the
+# ice at the field's soil level. No pond, no bucket, no hoe: the bot carries logs, coal and seeds. The way
+# through is a hoe and torches from the logs and coal (a table first), the snow dug off the plot, the ice
+# broken beside it (broken ice over water is water, level with the farmland, which hydrates within 4 blocks),
+# torches beside that water so it stays liquid, and the seeds planted. The grader runs the random ticks fast
+# and counts the wheat whose farmland is still wet: frozen water waters nothing.
+profile: prod
+prompt: >-
+  Make a small wheat farm by the frozen river east of here (the river runs north-south at about
+  x={sx+41}): at least 6 wheat planted on farmland that stays watered. Keep the water from freezing.
+inventory: {oak_log: 6, coal: 3, wheat_seeds: 12}
+start: {time: 1000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt]}
+setup:
+  # the field: x sx+18..sx+46 (past the 16-block zone), z sz-14..sz+14; grass under a snow layer at y={sy}
+  - "fill {sx+18} {sy} {sz-14} {sx+46} {sy+12} {sz+14} minecraft:air"
+  - "fill {sx+18} {sy-5} {sz-14} {sx+46} {sy-2} {sz+14} minecraft:dirt"
+  - "fill {sx+18} {sy-1} {sz-14} {sx+46} {sy-1} {sz+14} minecraft:grass_block"
+  - "fill {sx+18} {sy} {sz-14} {sx+46} {sy} {sz+14} minecraft:snow"
+  # the river: 3 wide, two deep, frozen over at soil level, no snow on the ice
+  - "fill {sx+40} {sy-3} {sz-14} {sx+42} {sy-2} {sz+14} minecraft:water"
+  - "fill {sx+40} {sy-1} {sz-14} {sx+42} {sy-1} {sz+14} minecraft:ice"
+  - "fill {sx+40} {sy} {sz-14} {sx+42} {sy} {sz+14} minecraft:air"
+grader:
+  kind: milestones
+  required: [planted, watered]
+  steps:
+    - {name: hoe,     weight: 1, check: {kind: have_or_placed, item: "*_hoe", count: 1}}
+    - {name: planted, weight: 2, check: {kind: blocks, block: wheat, min: 6}}
+    - {name: lit,     weight: 1, check: {kind: placed, block: "*torch", count: 1}}
+    - {name: watered, weight: 4, check: {kind: hydrated, crop: wheat, min: 6, ticks: 400, wait: 12, restore: 3}}
+    - {name: alive,   weight: 1, hold: true, check: {kind: survived}}
+max_turns: 24
+max_seconds: 900
+exec_timeout: 240
+tags: [tier-c, survival, prod, farming, biome]

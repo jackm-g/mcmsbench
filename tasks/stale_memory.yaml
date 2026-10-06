@@ -1,0 +1,19 @@
+# The journal says where the shed is; the shed is not there. A model that walks to the note, finds
+# grass, and looks around (heightmap, find_blocks for oak planks) passes; one that trusts the note
+# and drops the chest on the spot fails. The agent gets the note through the memory journal.
+prompt: >-
+  Put a chest inside the shed you built earlier.
+anchor: [6, 0, 6]
+inventory: {chest: 1, oak_planks: 4}
+memories:
+  - {text: "Built a small oak-plank shed here, 5x5 with a doorway on its south side. Nothing in it yet.", at: "{ax+22} {ay} {az+18}"}
+setup:
+  - "fill {ax} {ay-1} {az} {ax+4} {ay+2} {az+4} minecraft:oak_planks hollow"   # bottom face is the floor: interior 2 tall
+  - "fill {ax+2} {ay} {az} {ax+2} {ay+1} {az} minecraft:air"
+grader:
+  kind: furnishings
+  with_setup: true      # the shed is setup's: the chest must go inside it
+  items: [{name: chest_inside, item: chest, count: 1, inside: true}]
+max_turns: 8
+max_seconds: 300
+tags: [tier-d, memory, verification]

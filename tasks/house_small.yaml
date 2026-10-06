@@ -1,0 +1,9 @@
+prompt: >-
+  Build a small house somewhere inside your plot. It needs walls all the way around,
+  a roof, and a doorway or door so a player can get in, with enough room inside to
+  stand. Make it at least 5x5 on the outside. Use the materials you are carrying.
+anchor: [8, 0, 8]
+inventory: {oak_planks: 192, oak_door: 2, glass: 16, cobblestone: 64}
+grader: {kind: structure, min_footprint: 25, min_interior: 8, enclosed: true, roof: true, entrance: true}
+max_turns: 15
+tags: [tier-c, building, open-ended]

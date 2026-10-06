@@ -1,0 +1,19 @@
+prompt: >-
+  You come to on the bottom of the sea, running out of air. Base is on the ground at x={sx}, z={sz}.
+  Do not drown: get to the surface and to land, then go stand on base (within 3 blocks).
+inventory: {}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: underwater, offset: [-80, 0], random_radius: 40, time: day}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: close,   weight: 1, check: {kind: position, target_abs: spawn, tolerance: 40, y_tolerance: 400}}
+    - {name: arrived, weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 420
+exec_timeout: 200
+tags: [tier-c, survival, orientation, situation]

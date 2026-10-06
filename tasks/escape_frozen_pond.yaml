@@ -1,0 +1,21 @@
+prompt: >-
+  You fell through a hole in the ice of a frozen pond and drifted under the ice. Base is on the ground at
+  x={sx}, z={sz}. Do not drown: get out from under the ice and onto land, then go stand on base (within 3 blocks).
+inventory: {}
+world: {type: survival, seeds: [1], border: 500}
+start: {situation: water_pit, depth: 4, lip: 0, width: 7, cap: ice, distance: 40, random_radius: 8, time: day}
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: close,   weight: 1, check: {kind: position, target_abs: spawn, tolerance: 30, y_tolerance: 400}}
+    - {name: arrived, weight: 4, check: {kind: position, target_abs: spawn, tolerance: 3.0, y_tolerance: 4}}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 420
+exec_timeout: 200
+tags: [tier-c, survival, orientation, situation]
+# The live bot, 2026-09-27: under the ice of a lake, "to shore: no path" and "climb failed", five surface/unstick
+# calls, drowned in the next task. A 7x7 pond frozen over, 3 of water under the ice, the hole it fell through two
+# blocks away (toAir swims to it); the way out is up through the hole and onto the ice, level with the water.

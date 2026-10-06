@@ -1,0 +1,41 @@
+# MCMSBench settings: the arenas the bench runs on and the default trial budgets. Agents have their own manifests
+# (PROTOCOL.md §1, found through MCMSBENCH_AGENT_PATH). RCON_PASSWORD comes from the environment or .env.
+
+[arena]
+# Superflat arena (infra/docker-compose.yml service `arena`). NEVER point this at a live server: arena resets run
+# /fill over the arena volume.
+host = "127.0.0.1"
+port = 25565
+rcon_port = 25575
+version = "26.1"          # what clients log in as; must match the server's protocol
+floor_y = -61             # y of the top solid floor block in the superflat world
+size = 32                 # each plot is size x size blocks (x/z)
+height = 24               # blocks above the floor that get cleared + scanned
+spacing = 256             # x offset between per-trial plots
+bot_username = "player"   # the trial's player: the stand-in logs in as it, then the agent does
+observer_username = "observer"
+
+[survival]
+# Terrain arena (service `arena-survival`). A reset restores infra/worlds/<seed>.tar, restarting the server (~20 s).
+host = "127.0.0.1"
+port = 25567
+rcon_port = 25577
+compose_service = "arena-survival"
+data_dir = "infra/data-survival"
+worlds_dir = "infra/worlds"
+radius = 48               # half-size of the graded/rendered region around spawn (= border/2)
+border = 96               # /worldborder diameter
+bot_username = "player"
+observer_username = "observer"
+
+[trial]
+# budgets for a task that sets none
+max_seconds = 600
+max_cost_usd = 5.0
+
+# A second survival arena, for a run alongside another: `mcmsbench run --slot 2 ...`
+[slots.2.survival]
+port = 25568
+rcon_port = 25578
+compose_service = "arena-survival-2"
+data_dir = "infra/data-survival-2"
