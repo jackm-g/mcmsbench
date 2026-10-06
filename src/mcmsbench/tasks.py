@@ -75,6 +75,8 @@ class Task:
     scripted: bool = True             # False: no reference solutions in evals/scripted/<id>.py (--scripted/--broken refuse it)
     fast_nights: bool = True          # once the harness has the bot enclosed for the night, jump to morning (evals only;
                                       # needs world.daylight): a night is 10 real minutes of waiting otherwise
+    end_at_dawn: int | None = None    # the trial ends at this dawn (2: when day 3 begins), whatever the agent is doing: the
+                                      # bench counts dawns, takes a `dawn_N` frame at each, and never stops it on a pass
     requires: list[str] = field(default_factory=list)   # agent capabilities the grading depends on (protocol.CAPABILITIES):
                                                         # an agent without one is run, and its trial carries a caveat
     herd_watch: dict | None = None    # {types: [cow, chicken], grow: 4, poll: 2}: the runner's HerdWatcher tags the babies of

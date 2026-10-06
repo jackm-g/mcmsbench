@@ -1,0 +1,104 @@
+# Two days and two nights on the live server's terms, from nothing. Every prod task so far is one errand; the live
+# server is what happens between them. Blarvis's 14-day live report (2026-09-24) gave 29% of tasks verified and 3.1
+# deaths per task-hour, and the logs of 2026-09-23..27 show why, over and over:
+#   - deaths at the world spawn, unarmed: "a place that has killed you 19 times (DANGER at (12, 168))" (164001);
+#     its own note "never attempt open travel tasks without a weapon equipped first" (discord.log 2260)
+#   - armour carried, not worn: "wear the armor in your inventory" (BisonHeart, discord.log 4488)
+#   - its own house quarried for stone: "you are mining the roof off your house" (discord.log 4974; gear_up('iron')
+#     dug over the house in 232855)
+#   - a shelter it cannot leave: "you put blocks directly in front of your door so you can't get out" (4060)
+#   - the day wasted: "you are just standing there doing nothing, daytime is wasting away" (2924)
+#
+# The prod profile: Hard, a death drops everything, snowy plains (strays), random ticks at vanilla speed. Home is far
+# from spawn, as it is on the live server, where nothing near spawn lasts: the bot starts 160 blocks east of seed 1's
+# spawn, and that start is made the world's spawn (start.world_spawn), so spawn protection (16) is round it and a death
+# without a bed lands it there, 160 blocks from home. Home is the old spawn, where the trees are: the graded plot is 32
+# round it, so every block of it is 128 or more from the spawn. East is the only start on land (a probe of seed 1,
+# 2026-10-06: ocean 70-90 blocks north and south of the site, and at 160 out west, north and south; grass the whole
+# way east to 240). The border is 448 across round the site, and the biome repaint and the livestock cull reach it.
+# Livestock: none but what setup puts out, 80-110 blocks from the site, off the walk in: four sheep on the sand spit
+# west (a bed is three wool), five chickens south-east, four cows north-east. Iron is the seed's own, underground.
+# The harness's spawn errand is off: the bed is part of the task.
+#
+# The trial ends when day 3 begins (end_at_dawn: 2): the bench counts dawns, takes a `dawn_1` and a `dawn_2` frame,
+# and stops the agent at the second whatever it is doing; live grading never stops it early. Start at time 1000:
+# about nine real minutes to the first dusk. With fast nights a night costs under a minute once the bot is enclosed;
+# without them, both nights run their ten minutes and the run still fits in the clock (about 40 minutes).
+#
+# Graded: by the first dawn, a house (enclosed, roofed, 4x4 or more outside) with a door it can walk through and its
+# bed inside; at the end (the second dawn), the respawn point on that bed, an iron pickaxe, iron armour (chest and
+# legs) worn, food worth 20 points carried or in its chests, at most one death, and the trial run to day 3. The house
+# as it stood at the first dawn may lose 3 blocks after it, no more; a weapon before the first dusk scores on its own.
+profile: prod
+prompt: >-
+  You've just spawned here with nothing. Get through two days and two nights, and make your home at least 128 blocks
+  from the spawn: around ({cx}, {cz}), {dist} blocks west of here (nothing you place near the spawn stays, and if you
+  die you're back here). By the first morning, have a proper house on the surface within about 30 blocks of that
+  point, with a door you can walk through and your bed inside, and your spawn set on that bed. By the time the third
+  day starts, have an iron pickaxe, be wearing iron armour (at least a chestplate and leggings), and have at least 20
+  food points' worth stocked, carried or in a chest. Look after your house, and don't die.
+inventory: {}
+world:
+  radius: 32                # the graded plot round the site (the old spawn): all of it 128+ from the start
+  border: 448               # round the site: the start, 160 east, has 64 blocks past it
+  biome_radius: 224         # the repaint and the livestock cull reach the border
+start: {time: 1000, weather: clear, distance: 160, bearing: 90, world_spawn: true}
+spawn_first: false          # the harness's bed errand would take the sheep and set the spawn itself
+end_at_dawn: 2
+scripted: false             # no reference solution yet: a scripted agent has none to run
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the herds: summoned at the site, where the chunks are loaded, and spread onto the ground out from it (spreadplayers
+  # finds land); none on the walk in from the east
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Color:0b,Tags:[\"herd_w\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Color:0b,Tags:[\"herd_w\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Color:0b,Tags:[\"herd_w\"],PersistenceRequired:1b}}"
+  - "summon minecraft:sheep {sx} {sy+1} {sz} {{Color:0b,Tags:[\"herd_w\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx-80} {sz} 2 6 false @e[tag=herd_w]"
+  - "summon minecraft:cow {sx} {sy+1} {sz} {{Tags:[\"herd_ne\"],PersistenceRequired:1b}}"
+  - "summon minecraft:cow {sx} {sy+1} {sz} {{Tags:[\"herd_ne\"],PersistenceRequired:1b}}"
+  - "summon minecraft:cow {sx} {sy+1} {sz} {{Tags:[\"herd_ne\"],PersistenceRequired:1b}}"
+  - "summon minecraft:cow {sx} {sy+1} {sz} {{Tags:[\"herd_ne\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx+96} {sz-48} 2 8 false @e[tag=herd_ne]"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"herd_se\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"herd_se\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"herd_se\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"herd_se\"],PersistenceRequired:1b}}"
+  - "summon minecraft:chicken {sx} {sy+1} {sz} {{Tags:[\"herd_se\"],PersistenceRequired:1b}}"
+  - "spreadplayers {sx+48} {sz+72} 2 6 false @e[tag=herd_se]"
+  - "time set 1000"         # again: the clock ran through the setup
+stats: [deaths, damage_taken, kills, walked, "killed_by:zombie", "killed_by:stray", "killed_by:skeleton",
+        "killed_by:creeper", "killed_by:spider"]
+grader:
+  kind: milestones
+  required: [shelter, home_spawn, iron_pickaxe, armoured, food, alive, reached_day3]
+  steps:
+    - {name: armed,        weight: 1, by: 540, check: {kind: inventory, item: ["*_sword", "*_axe"], count: 1}}
+    - name: shelter
+      weight: 3
+      at_dawn: 1
+      check: {kind: structure, min_footprint: 16, min_side: 4, min_interior: 4, min_placed: 20, entrance: false,
+              contained: false}
+    - name: door
+      weight: 1
+      at_dawn: 1
+      check: {kind: furnishings, items: [{name: door, item: "*_door", in_shell: true, clear: true}]}
+    - name: bed_inside
+      weight: 1
+      at_dawn: 1
+      check: {kind: furnishings, items: [{name: bed, item: "*_bed", inside: true}]}
+    - {name: home_spawn,   weight: 2, check: {kind: respawn, inside: true}}
+    - {name: iron_pickaxe, weight: 2, check: {kind: inventory, item: ["iron_pickaxe", "diamond_pickaxe"], count: 1}}
+    - name: armoured
+      weight: 2
+      check: {kind: equipped, slots: {chest: ["iron_chestplate", "diamond_chestplate", "netherite_chestplate"],
+                                      legs: ["iron_leggings", "diamond_leggings", "netherite_leggings"]}}
+    - {name: food,         weight: 2, check: {kind: food_stock, min_points: 20, in_containers: true}}
+    - {name: house_intact, weight: 1, check: {kind: intact, at: dawn_1, max_broken: 3}}
+    - {name: alive,        weight: 3, hold: true, check: {kind: survived, max_deaths: 1}}
+    - {name: reached_day3, weight: 2, check: {kind: day, min: 3}}
+max_turns: 80
+max_seconds: 2700
+max_cost_usd: 6
+exec_timeout: 300
+tags: [tier-c, survival, composite, prod, night, combat, endurance]

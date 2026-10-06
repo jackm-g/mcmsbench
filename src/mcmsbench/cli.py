@@ -109,7 +109,7 @@ def offline_plot(task, s: config.Settings, trial: int = 0):
 
 
 def cmd_goal(argv: list[str]) -> int:
-    from .runner import build_goal, live_gradable
+    from .runner import build_goal, stops_on_pass
     from .tasks import load
     p = argparse.ArgumentParser(prog="mcmsbench goal", description="Print the goal file a task makes, as an agent "
                                 "would get it (positions as the default arenas lay the plot out).")
@@ -120,7 +120,7 @@ def cmd_goal(argv: list[str]) -> int:
     task = load(a.task)
     plot, start = offline_plot(task, s, a.trial)
     goal = build_goal(task, plot, start, s, a.trial, seed=task.seed_for(a.trial) if task.world.type == "survival" else None,
-                      fast_nights=bool(task.fast_nights and task.world.daylight), grader_stops=live_gradable(task.grader),
+                      fast_nights=bool(task.fast_nights and task.world.daylight), grader_stops=stops_on_pass(task),
                       max_seconds=float(task.max_seconds or s.trial.max_seconds),
                       max_cost=float(task.max_cost_usd or s.trial.max_cost_usd))
     print(json.dumps(goal, indent=1, default=str))

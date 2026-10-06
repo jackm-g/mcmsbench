@@ -25,6 +25,10 @@ class Frame:
     t: float | None = None                      # seconds since the trial started
     stats: dict = field(default_factory=dict)   # scoreboard counters (server truth)
     food: int | None = None                     # the hunger bar (server truth), 0..20
+    equipment: dict | None = None               # {slot: {name, count}}: what the player wears and holds (server truth),
+                                                # read when the grader asks for it; None: not read at this frame
+    containers: dict | None = None              # {pos: [items]}: the bot's chests and barrels (server truth); only the
+                                                # final frame has them (a chest's past contents are not recorded)
 
 
 @dataclass
@@ -54,6 +58,10 @@ class Context:
                                                         # since the start, by 'dig' | 'path' (the pathfinder on a walk)
     food: int | None = None                             # final server-side hunger bar, 0..20
     herd: dict | None = None                            # the herd watcher's tally: {baby_kills, baby_lost, born, grown}
+    equipment: dict | None = None                       # final {slot: {name, count}}: armour worn, hands
+    containers: dict | None = None                      # final {pos: [items]}: the chests and barrels the bot placed
+    day: int | None = None                              # the day the trial ended in (1 = the one it started in, each dawn
+                                                        # the bench saw starts the next); None: no day clock ran
 
     def at_frame(self, f: Frame) -> "Context":
         """A context describing the world as of one frame."""
@@ -61,7 +69,7 @@ class Context:
         return Context(self.before, f.snapshot, _diff(self.before, f.snapshot), self.plot_volume, self.floor_y,
                        f.position, f.inventory, [], f.stats, self.health, self.world_time, self.center,
                        self.after_states, self.rcon, self.fmt, self.track, self.seconds, self.refusals, self.respawn,
-                       self.setup, self.start, self.broke, f.food, self.herd)
+                       self.setup, self.start, self.broke, f.food, self.herd, f.equipment, f.containers, self.day)
 
     def at_position(self, pos: XYZ) -> "Context":
         """The final world with the bot at a sampled position (for position checks against the track)."""
@@ -461,7 +469,8 @@ def furnishings(ctx: Context, spec: dict) -> Result:
     """Things the bot placed, by kind. items: [{name, item (glob or list), count, inside: bool,
     story: n (1 = ground; implies inside), next_to: glob (touching such a block, e.g. a pressure
     plate beside a door), in_shell: bool (within the structure's bounding box: a door hung in its
-    wall, not one set down in a field)}]. Doors and beds span two cells and count once."""
+    wall, not one set down in a field), clear: bool (a door that can be walked through: open two
+    high on both sides, not walled in)}]. Doors and beds span two cells and count once."""
     placed = built_for(ctx, spec)
     _, box = structural.shell_box(placed, ctx.floor_y)
     levels = [s["y"] for s in structural.find_stories(ctx.after, box, ctx.floor_y, spec.get("min_area", 9))] if box else []
@@ -479,6 +488,8 @@ def furnishings(ctx: Context, spec: dict) -> Result:
         if "next_to" in it:
             cells = [p for p in cells if any(_matches(ctx.after.get((p[0] + dx, p[1], p[2] + dz), "air"), it["next_to"])
                                              for dx, dz in structural.XZ)]
+        if it.get("clear"):         # a way through it: open, two high, on both sides (not blocked in from outside)
+            cells = [p for p in cells if _clear_through(ctx, _lower_half(placed, p))]
         two_cell = bool(cells) and all(placed[p].endswith(structural.TWO_CELL_SUFFIXES) for p in cells)
         have = len(cells) // 2 if two_cell else len(cells)
         need = it.get("count", 1)
@@ -487,6 +498,20 @@ def furnishings(ctx: Context, spec: dict) -> Result:
         detail[name] = {"have": have, "need": need}
         score += min(1.0, have / need)
     return Result(all(checks.values()), score / max(1, len(spec["items"])), checks, detail)
+
+
+def _lower_half(placed: Snapshot, p: XYZ) -> XYZ:
+    """The bottom cell of a two-cell block (a door): `p`, or the cell under it when that is the same block."""
+    under = (p[0], p[1] - 1, p[2])
+    return under if placed.get(under) == placed.get(p) else p
+
+
+def _clear_through(ctx: Context, p: XYZ) -> bool:
+    """Open on both sides of `p` along x or along z, at its height and the one above: a doorway a player walks through."""
+    x, y, z = p
+    return any(all(not structural.is_solid(ctx.after, (x + s * dx, y + h, z + s * dz), ctx.floor_y)
+                   for s in (1, -1) for h in (0, 1))
+               for dx, dz in ((1, 0), (0, 1)))
 
 
 # ------------------------------------------------------------- survival bits
@@ -588,8 +613,8 @@ def level_site(ctx: Context, spec: dict) -> Result:
     return Result(all(checks.values()), sum(checks.values()) / 2, checks, lv)
 
 
-LIVE_KINDS = {"functional", "entity_inside", "respawn", "hydrated", "herd"}   # graded against the server's final state: evaluated once, at the end
-TRAJECTORY_KINDS = {"exit_route"}   # read the whole trial (frames, track, what broke): evaluated once, on the full context
+LIVE_KINDS = {"functional", "entity_inside", "respawn", "hydrated", "herd", "day"}   # graded against the server's final state: evaluated once, at the end
+TRAJECTORY_KINDS = {"exit_route", "intact"}   # read the whole trial (frames, track, what broke): evaluated once, on the full context
 
 
 @grader("milestones")
@@ -603,12 +628,19 @@ def milestones(ctx: Context, spec: dict) -> Result:
     (a waypoint on a patrol). `position` checks also look at the sampled position track,
     so a place visited in the middle of a step still counts. `by: 60` only counts a milestone
     first reached within that many seconds of the start (a required one with `by` fails late).
-    score = weighted fraction of milestones counted."""
+    `at_dawn: 1` is the same deadline at the frame the bench took at that dawn (`dawn_1`, the start of day 2); a trial
+    that ended before that dawn has no such deadline. A check read once at the end (LIVE_KINDS, TRAJECTORY_KINDS)
+    cannot take `at_dawn`: it has no time of its own. score = weighted fraction of milestones counted."""
     steps = spec["steps"]
     required = spec.get("required")
     required = [required] if isinstance(required, str) else list(required or [])
+    for m in steps:
+        if "at_dawn" in m and m["check"].get("kind") in LIVE_KINDS | TRAJECTORY_KINDS:
+            raise ValueError(f"milestone {m['name']!r}: a {m['check']['kind']} check is read at the end, so it takes no at_dawn")
     frames = list(ctx.frames)
-    final = Frame("final", ctx.after, ctx.bot_position, ctx.bot_inventory, t=ctx.seconds, stats=ctx.stats, food=ctx.food)
+    dawn_t = {int(f.label[5:]): f.t for f in frames if f.label.startswith("dawn_") and f.label[5:].isdigit()}
+    final = Frame("final", ctx.after, ctx.bot_position, ctx.bot_inventory, t=ctx.seconds, stats=ctx.stats, food=ctx.food,
+                  equipment=ctx.equipment, containers=ctx.containers)
     reached: dict[str, int | None] = {}
     reached_t: dict[str, float | None] = {}
     final_ok: dict[str, bool] = {}
@@ -651,11 +683,19 @@ def milestones(ctx: Context, spec: dict) -> Result:
             final_ok[name] = end_r.passed
         if end_r is not None:
             final_detail[name] = _compact({"checks": end_r.checks, **(end_r.detail or {})})
+    def deadline(m: dict) -> float | None:
+        out = m.get("by")
+        dawn = dawn_t.get(int(m["at_dawn"])) if "at_dawn" in m else None
+        if dawn is not None:
+            out = dawn if out is None else min(out, dawn)
+        return out
+
     def in_time(m: dict) -> bool:
-        if "by" not in m or reached[m["name"]] is None:
+        d = deadline(m)
+        if d is None or reached[m["name"]] is None:
             return True
         t = reached_t[m["name"]]
-        return t is not None and t <= m["by"]
+        return t is not None and t <= d
     def counted(m: dict) -> bool:
         name = m["name"]
         if not in_time(m):
@@ -671,7 +711,7 @@ def milestones(ctx: Context, spec: dict) -> Result:
     checks = {m["name"]: counted(m) for m in steps}
     return Result(passed, got / total if total else 0.0, checks,
                   {"reached_at_step": reached, "reached_at_seconds": reached_t, "holds_at_end": final_ok,
-                   "frames": len(frames), "steps": final_detail})
+                   "frames": len(frames), "dawns": dawn_t, "steps": final_detail})
 
 
 def _compact(v, depth: int = 0):
@@ -764,13 +804,77 @@ def food(ctx: Context, spec: dict) -> Result:
 @grader("food_stock")
 def food_stock(ctx: Context, spec: dict) -> Result:
     """The food carried is worth at least `min_points` hunger points eaten (food.FOOD_POINTS: bread 5, cooked beef 8):
-    a store, not a meal."""
+    a store, not a meal. `in_containers: true` also counts what lies in the chests and barrels the bot placed, read at
+    the end (a frame before it has no record of them, so only what was carried counts there)."""
     from ..tables import FOOD_POINTS, food_points
     need = int(spec["min_points"])
-    have = food_points(ctx.bot_inventory)
+    carried = food_points(ctx.bot_inventory)
+    stored = 0
+    detail: dict = {}
+    if spec.get("in_containers") and ctx.containers:
+        stored = sum(food_points(items) for items in ctx.containers.values())
+        detail["stored"] = {str(list(p)): {i["name"]: i["count"] for i in items if i.get("name") in FOOD_POINTS}
+                            for p, items in ctx.containers.items() if food_points(items)}
+    have = carried + stored
     items = {i["name"]: i["count"] for i in ctx.bot_inventory if i.get("name") in FOOD_POINTS}
     return Result(have >= need, min(1.0, have / need) if need else 1.0, {"stocked": have >= need},
-                  {"points": have, "need": need, "items": items})
+                  {"points": have, "carried": carried, "in_containers": stored, "need": need, "items": items, **detail})
+
+
+ARMOUR_SLOTS = ("head", "chest", "legs", "feet")
+
+
+@grader("equipped")
+def equipped(ctx: Context, spec: dict) -> Result:
+    """What the player wears or holds (server truth): `slots: {chest: [iron_chestplate, diamond_chestplate], legs:
+    "*_leggings"}`, a glob or a list per slot (head, chest, legs, feet, offhand, mainhand). Worn, not carried: armour
+    in the inventory is not armour on."""
+    want = dict(spec.get("slots") or {})
+    eq = ctx.equipment
+    if eq is None:
+        return Result(False, 0.0, {f"{k}_worn": False for k in want}, {"reason": "equipment not read"})
+    checks = {f"{k}_worn": bool(eq.get(k)) and _matches(eq[k]["name"], pat) for k, pat in want.items()}
+    return Result(all(checks.values()) if checks else False, sum(checks.values()) / max(1, len(checks)), checks,
+                  {"worn": {k: v["name"] for k, v in eq.items()}})
+
+
+@grader("intact")
+def intact(ctx: Context, spec: dict) -> Result:
+    """The bot's house stood its ground after it was built: the shell of what it had built by the frame labelled `at`
+    (`dawn_1`: the house it slept in), and what it placed within that shell, lost at most `max_broken` blocks from then
+    on. Lost: broken in the trial's break log after that frame (patched or not), or gone from the final world. The
+    house mined into for its stone, walled through instead of using the door, dug out from under its bed."""
+    from ..world.volume import diff as _diff
+    at = str(spec.get("at", "dawn_1"))
+    ref = next((f for f in ctx.frames if f.label == at), None)
+    if ref is None:
+        return Result(False, 0.0, {"house_found": False}, {"reason": f"no {at} frame: the trial ended before it"})
+    own = built(_diff(ctx.before, ref.snapshot))
+    _, box = structural.shell_box(own, ctx.floor_y)
+    if box is None:
+        return Result(False, 0.0, {"house_found": False}, {"reason": f"nothing built by {at}"})
+    house = {p: b for p, b in own.items() if box.contains(p)}
+    t_ref = ref.t or 0.0
+    broke = {tuple(b[1:4]) for b in ctx.broke if b[0] > t_ref and tuple(b[1:4]) in house}
+    gone = {p for p in house if ctx.after.get(p) is None}          # air now (a block turned to another is not a loss)
+    lost = broke | gone
+    allow = int(spec.get("max_broken", 0))
+    ok = len(lost) <= allow
+    score = 1.0 if ok else max(0.0, 1.0 - (len(lost) - allow) / max(1.0, len(house) / 4))
+    return Result(ok, score, {"house_found": True, "intact": ok},
+                  {"house_blocks": len(house), "lost": len(lost), "allowed": allow, "since": {"frame": at, "t": t_ref},
+                   "broken": [list(p) for p in sorted(broke)[:12]], "gone": [list(p) for p in sorted(gone)[:12]]})
+
+
+@grader("day")
+def day(ctx: Context, spec: dict) -> Result:
+    """The trial lasted into day `min` (1 = the day it started in; the bench counts a dawn each time the clock comes
+    out of night). For a task that ends at a dawn (`end_at_dawn`): it ran to its end, not to a death or the clock."""
+    need = int(spec.get("min", 2))
+    if ctx.day is None:
+        return Result(False, 0.0, {"reached_day": False}, {"reason": "no day clock ran (the task needs daylight)"})
+    ok = ctx.day >= need
+    return Result(ok, 1.0 if ok else (ctx.day - 1) / max(1, need - 1), {"reached_day": ok}, {"day": ctx.day, "need": need})
 
 
 HERD_COUNT = re.compile(r"count: (\d+)", re.I)

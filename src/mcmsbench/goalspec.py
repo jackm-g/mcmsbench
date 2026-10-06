@@ -72,6 +72,10 @@ UNCOVERED = {
     "stayed": "the whole walk staying within {radius} blocks",
     "liquid_path": "a liquid path the grader traces in the final world",
     "herd": "the livestock the server counts in the plot at the end",
+    "equipped": "the armour worn and items held, from the server (worn, not carried)",
+    "intact": "the house built by {at} left standing: at most {max_broken} of its blocks broken from then on",
+    "day": "the trial lasting into day {min} (day 1 is the one it starts in; each dawn begins the next)",
+    "food_stock": "food worth {min_points} points, carried or in the chests and barrels you placed",
     "exit_route": "the bot's walk out of the finished house: up to the top story, then out on foot (down the stairs, "
                   "out the door) without opening the upper walls, from the trial's frames and position track",
 }
@@ -179,7 +183,7 @@ def _live_part(spec: dict, plot) -> dict | None:
         return {"kind": "hydrated", "crop": str(spec.get("crop", "wheat")), "min": int(spec.get("min", 1))}
     if k == "food":
         return {"kind": "food", "min": int(spec.get("min", 20))}
-    if k == "food_stock" and "min_points" in spec:
+    if k == "food_stock" and "min_points" in spec and not spec.get("in_containers"):   # a chest is not read live
         return {"kind": "food_stock", "min_points": int(spec["min_points"])}
     if k in LIVE_GRADERS and not spec.get("with_setup"):     # a structure setup provides is not in the bot's record
         return {"kind": "grader", "spec": spec, "plot": [list(lo), list(hi)], "floor_y": floor_y, "center": list(c)}

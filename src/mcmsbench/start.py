@@ -33,6 +33,11 @@ class StartSpec:
                                                                 #   cavern (a torch-lit cave about `width` across, `depth`
                                                                 #     below, irregular walls and a domed roof)
     food: int | None = None                                     # hunger bar (0..20) to start at; saturation ends at 0
+    world_spawn: bool = False                                   # survival: the start becomes the world spawn (setworldspawn), so
+                                                                #   the server's spawn protection is round it and a death
+                                                                #   without a bed lands there; the plot stays where it is (a
+                                                                #   home far from spawn). Graders' spawn terms (min_from_spawn,
+                                                                #   a position at "spawn") still measure from the plot's centre
 
 
 def resolve_start(spec: StartSpec, center: XYZ, task_id: str, trial: int, seed: int,

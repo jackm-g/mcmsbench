@@ -72,7 +72,8 @@ The agent must not expect to be op, and it never gets RCON.
   "movements": { "can_dig": true, "towers": true, "scaffolding": ["sand", "dirt"] },   // what the task allows
   "profile": {
     "multiplayer": false, "longRun": false,
-    "spawnProtection": { "x": 154, "z": 163, "radius": 16 },    // or null: the server refuses digs/places inside it
+    "spawnProtection": { "x": 154, "z": 163, "radius": 16 },    // or null: the server refuses digs/places inside it;
+                                                                //   round the world spawn, not always the plot's centre
     "border": { "x": 154, "z": 163, "radius": 48 },             // or null (flat plots)
     "fastNights": true,      // a night_skip_request (§5) will be answered
     "graderStops": true      // the bench grades live and stops the agent once the task passes
@@ -88,6 +89,10 @@ The agent must not expect to be op, and it never gets RCON.
   "tags": ["tier-c", "survival", "night"]
 }
 ```
+
+`budget.ends`, when present, says the trial ends on the world's clock rather than on a pass: `{"at_dawn": 2}` ends it
+when day 3 begins (day 1 is the one it starts in). The bench counts dawns itself and stops you there (§6), so keep
+going until then: a `done` before it ends the run short of the task.
 
 Unknown keys may be added within protocol 1, so ignore keys you don't use. `mcmsbench goal --task ID` prints the goal
 file any task makes, with no server needed.
@@ -158,6 +163,9 @@ a frame every 30 seconds itself, so an agent that sends no subgoal events is not
   the agent still (SIGSTOP), waits 1.5 s for what the agent had already sent to land, and grades again. If the task
   still passes, it sends SIGTERM and then SIGCONT, and the record says `stop: grader_passed`. If not, SIGCONT and the
   agent plays on. A pause of a few seconds is normal, so don't treat it as a lost connection.
+- **The task's last dawn:** when `budget.ends.at_dawn` is set, the bench holds the agent still at that dawn, takes its
+  frame, then sends SIGTERM and SIGCONT. The record says `stop: dawn_reached`. `profile.graderStops` is false for such
+  a task: passing early does not end it.
 
 **Capabilities** are what a task may need beyond this protocol (`requires:` in its YAML):
 

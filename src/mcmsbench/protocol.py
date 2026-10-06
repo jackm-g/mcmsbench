@@ -20,9 +20,10 @@ their `event`:
   trace                              the trace (also read from --out when the line never comes)
 
 Lines without the prefix are passed through as progress. The runner also takes a frame every FRAME_EVERY seconds, so an
-agent that reports nothing is graded on the same footing. SIGTERM asks the agent to stop and write its trace; SIGKILL
-follows 15 s later. With a live grader (`ctx.goal_met`) the agent is stopped as soon as the task passes on a world held
-still (SIGSTOP while it is confirmed, then SIGTERM + SIGCONT).
+agent that reports nothing is graded on the same footing. With a day clock (`ctx.dawns`) it takes a `dawn_N` frame at
+each dawn, and a task that ends at a dawn (`ctx.end_at_dawn`) has its agent held still and stopped there. SIGTERM asks
+the agent to stop and write its trace; SIGKILL follows 15 s later. With a live grader (`ctx.goal_met`) the agent is
+stopped as soon as the task passes on a world held still (SIGSTOP while it is confirmed, then SIGTERM + SIGCONT).
 """
 from __future__ import annotations
 
@@ -48,6 +49,7 @@ STEP_EVENTS = ("subgoal_completed", "subgoal_failed")
 GOAL_CHECK_EVERY = 10.0     # seconds between live grades; stretched when one takes long (a big plot to scan)
 CONFIRM_SETTLE = 1.5        # a pass is graded again after the agent has been held still this long
 FRAME_EVERY = 30.0          # seconds between the runner's own frames, whatever the agent reports
+DAWN_POLL_EVERY = 5.0       # seconds between reads of the day clock (100 ticks: no night slips between two)
 KILL_AFTER = 15.0           # seconds from SIGTERM to SIGKILL
 CAPABILITIES = ("guard", "fast_nights")   # what a task may require of an agent beyond the protocol (Task.requires)
 
@@ -176,6 +178,8 @@ class TrialContext:
     goal_met: Callable[[], bool] | None = None        # the grader on the live world; None: not gradable mid-trial
     night_skip: Callable[[], None] | None = None      # the task's fast-night hook; None: real nights
     on_event: Callable[[dict], None] | None = None    # every protocol event but the trace, as the agent sent it
+    dawns: Callable[[], int] | None = None            # the dawns seen so far (the runner's day clock); None: no clock
+    end_at_dawn: int | None = None                    # stop the agent at this dawn (the task's end), frame taken first
     log: object | None = None                         # the trial's EventLog
     stop: threading.Event | None = None
 
@@ -278,6 +282,8 @@ class Agent:
             threading.Thread(target=reader, daemon=True).start()
             next_check = time.monotonic() + GOAL_CHECK_EVERY
             next_frame = time.monotonic() + FRAME_EVERY
+            next_dawn = time.monotonic() + DAWN_POLL_EVERY
+            dawns_seen = 0
             try:
                 while True:
                     try:
@@ -287,6 +293,22 @@ class Agent:
                     if line is None:
                         break
                     running = stopped_by is None and not ended and proc.poll() is None
+                    if running and ctx.dawns is not None and time.monotonic() >= next_dawn:
+                        next_dawn = time.monotonic() + DAWN_POLL_EVERY
+                        n = self._dawns(ctx, tag, dawns_seen)
+                        last = ctx.end_at_dawn is not None and n >= ctx.end_at_dawn
+                        if last:            # the world as the task ends: the agent held still before the frame
+                            with_suppress(lambda: signal_group(proc, signal.SIGSTOP))
+                        for k in range(dawns_seen + 1, n + 1):
+                            ctx.progress(f"{tag} dawn {k} (day {k + 1}) at {time.time() - t0:.0f} s")
+                            if ctx.after_step:
+                                self._frame(ctx, f"dawn_{k}", tag)
+                        dawns_seen = n
+                        if last:
+                            stopped_by = "dawn"
+                            ctx.progress(f"{tag} day {n + 1} has begun: the task ends here, stopping the agent")
+                            terminate(proc, held=True)
+                            running = False
                     if running and ctx.after_step and time.monotonic() >= next_frame:
                         timer_frames += 1
                         self._frame(ctx, f"t{int(time.time() - t0):04d}", tag)
@@ -377,8 +399,9 @@ class Agent:
         trace["exit_code"] = code
         trace["guard_refusals"] = refusals
         if stopped_by:
-            trace["stopped_by"] = stopped_by    # the run ended early because the grader passed, not on the agent's word
-            trace["stop"] = "grader_passed"
+            # the run ended on the bench's word, not the agent's: the grader passed, or the task's last dawn came
+            trace["stopped_by"] = stopped_by
+            trace["stop"] = {"grader": "grader_passed", "dawn": "dawn_reached"}[stopped_by]
         trace["stdout"] = tail
         trace["agent_log"] = str(log)
         trace.setdefault("seconds", round(time.time() - t0, 1))
@@ -394,6 +417,14 @@ class Agent:
             ctx.after_step(label)
         except Exception as e:  # noqa: BLE001 — a missed frame is not a failed trial
             ctx.progress(f"{tag} frame {label} failed: {e}")
+
+    @staticmethod
+    def _dawns(ctx: TrialContext, tag: str, seen: int) -> int:
+        try:
+            return max(seen, int(ctx.dawns()))
+        except Exception as e:  # noqa: BLE001 — a missed read is caught up by the next one
+            ctx.progress(f"{tag} day clock read failed: {type(e).__name__}: {e}")
+            return seen
 
     @staticmethod
     def _grade(ctx: TrialContext, tag: str) -> bool:

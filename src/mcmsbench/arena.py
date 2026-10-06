@@ -189,6 +189,15 @@ class Arena:
         graders: the client's view can drift after inventory desyncs."""
         return parse_inventory(self.rcon(f"data get entity {username} Inventory"))
 
+    def server_equipment(self, username: str) -> dict:
+        """What the player wears and holds, as the server holds it: {slot: {name, count}} (26.x keeps armour and the
+        offhand under `equipment`, not in Inventory)."""
+        return parse_equipment(self.rcon(f"data get entity {username} equipment"))
+
+    def server_containers(self, positions) -> dict:
+        """{pos: [{name, count, slot}]}: the items in each chest or barrel at these positions (the chunks loaded)."""
+        return {tuple(p): parse_inventory(self.rcon(f"data get block {p[0]} {p[1]} {p[2]} Items")) for p in positions}
+
     def server_health(self, username: str) -> float | None:
         m = re.search(r"data: ([\d.]+)f", self.rcon(f"data get entity {username} Health"))
         return float(m.group(1)) if m else None
@@ -249,6 +258,32 @@ def parse_inventory(nbt_text: str) -> list[dict]:
         slot = re.search(r"Slot: (\d+)b", m.group(2))
         items.append({"name": m.group(3), "count": int(m.group(1)), "slot": int(slot.group(1)) if slot else -1})
     return items
+
+
+EQUIPMENT_SLOTS = ("head", "chest", "legs", "feet", "mainhand", "offhand", "body", "saddle")
+
+
+def parse_equipment(nbt_text: str) -> dict:
+    """`/data get entity <p> equipment` into {slot: {name, count}}: `{chest: {components: {...}, count: 1, id:
+    "minecraft:iron_chestplate"}, ...}`. Each slot's compound is read to its closing brace, so an item's components
+    (damage, enchantments) never lend it another's id. An empty answer (nothing worn) is {}."""
+    out: dict = {}
+    for m in re.finditer(r"\b(" + "|".join(EQUIPMENT_SLOTS) + r"): \{", nbt_text):
+        depth, i = 1, m.end()
+        while i < len(nbt_text) and depth:
+            depth += {"{": 1, "}": -1}.get(nbt_text[i], 0)
+            i += 1
+        body = nbt_text[m.end():i - 1]
+        top, d = [], 0
+        for ch in body:                    # the compound's own level: nested components blanked out
+            d += 1 if ch == "{" else -1 if ch == "}" else 0
+            top.append(ch if d == 0 and ch != "}" else " ")
+        flat = "".join(top)
+        name = re.search(r'\bid: "minecraft:([a-z0-9_]+)"', flat)
+        count = re.search(r"\bcount: (\d+)", flat)
+        if name and m.group(1) not in out:
+            out[m.group(1)] = {"name": name.group(1), "count": int(count.group(1)) if count else 1}
+    return out
 
 
 def parse_respawn(nbt_text: str) -> tuple[int, int, int] | None:

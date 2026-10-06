@@ -18,6 +18,7 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 import yaml
 
@@ -59,6 +60,7 @@ class TrialRecord:
     final_dimension: str | None = None
     final_respawn: dict | None = None        # {pos, bed}: the server's respawn point at the end (None = world spawn)
     final_food: int | None = None            # the hunger bar at the end (server truth)
+    final_equipment: dict | None = None      # {slot: {name, count}}: worn and held at the end, when the grader reads it
     start: list | None = None
     report: str | None = None
     frame_diffs: list = field(default_factory=list)   # per-frame changes vs `before` (compact; enough to re-render)
@@ -191,6 +193,12 @@ def grader_kinds(spec) -> set[str]:
 def live_gradable(spec) -> bool:
     """Whether the grader can be run on the live server mid-trial without changing it."""
     return bool(spec) and not (grader_kinds(spec) & ACTING_GRADERS)
+
+
+def stops_on_pass(task: Task) -> bool:
+    """Whether the bench grades the trial live and stops the agent once it passes (the goal file's graderStops): not for
+    a grader that acts on the server, nor a task that runs to a dawn (a pass on the first day is not its end)."""
+    return live_gradable(task.grader) and not task.end_at_dawn
 
 
 class PositionTracker:
@@ -417,6 +425,64 @@ def night_skipper(host: str, port: int, password: str, elog: EventLog | None = N
     return skip
 
 
+class DayClock:
+    """Counts dawns from the time of day, read every few seconds: a dawn is the clock coming out of the evening or the
+    night (12000 on) into day (before 12000), whether the night ran its course past 24000, was fast-forwarded to
+    morning, or was slept through. A bed takes a player from 12542, so a night slept through never reads 13000: the
+    clock went 12658 to 56 and the dawn was missed (two_nights_hard, 2026-10-06). The day counter of `time query day`
+    is not used: `time set` (a skipped night) resets it. `observe` is pure; `poll` reads the server."""
+
+    DAY_BEFORE = 12000
+
+    def __init__(self, read_time: Callable[[], int | None] | None = None, t0: float | None = None):
+        self.read_time, self.t0 = read_time, t0
+        self.dawns: list[float] = []         # seconds since the start of each dawn seen
+        self._night = False
+
+    def observe(self, tod: int | None, at: float | None = None) -> bool:
+        """One reading of the time of day (ticks, 0..23999); True when it is a new dawn."""
+        if tod is None:
+            return False
+        if tod >= self.DAY_BEFORE:
+            self._night = True
+        elif tod < self.DAY_BEFORE and self._night:
+            self._night = False
+            self.dawns.append(round(at if at is not None else time.time() - (self.t0 or time.time()), 1))
+            return True
+        return False
+
+    def poll(self) -> int:
+        self.observe(self.read_time() if self.read_time else None)
+        return len(self.dawns)
+
+    @property
+    def day(self) -> int:
+        return len(self.dawns) + 1
+
+
+def needs_day_clock(task: Task) -> bool:
+    """A day clock runs for a task that ends at a dawn or grades by one (a `day` check, a milestone `at_dawn`), and
+    only with the day/night cycle on."""
+    if not task.world.daylight:
+        return False
+    steps = (task.grader.get("steps") or []) if isinstance(task.grader, dict) else []
+    return bool(task.end_at_dawn) or "day" in grader_kinds(task.grader) or any("at_dawn" in m for m in steps)
+
+
+CONTAINERS = ("chest", "trapped_chest", "barrel")
+
+
+def needs_containers(spec) -> bool:
+    """Whether a grader reads what the bot's chests hold (a food_stock with in_containers)."""
+    if isinstance(spec, dict):
+        if spec.get("kind") == "food_stock" and spec.get("in_containers"):
+            return True
+        return any(needs_containers(v) for v in spec.values())
+    if isinstance(spec, list):
+        return any(needs_containers(v) for v in spec)
+    return False
+
+
 class far_surface:
     """`surface(x, z)` for resolve_start on terrain. A start hundreds of blocks from the plot (start.distance) is outside
     the observer's view, so the observer flies there first, which also generates the chunks; `moved` tells the caller
@@ -455,12 +521,13 @@ def block_position(arena: Arena, username: str) -> tuple[int, int, int] | None:
 
 # ------------------------------------------------------------------ the goal file
 
-def spawn_protection(task: Task, plot: Plot) -> dict | None:
-    """The server's protected square around the world spawn (the plot's centre in the survival arena), or None."""
+def spawn_protection(task: Task, plot: Plot, start: tuple[int, int, int] | None = None) -> dict | None:
+    """The server's protected square around the world spawn, or None. The world spawn is the plot's centre in the
+    survival arena, or the start when the task moves it there (`start.world_spawn`)."""
     radius = int(getattr(task.world, "spawn_protection", 0) or 0)
     if radius <= 0:
         return None
-    x, _, z = plot.center()
+    x, _, z = start if task.start.world_spawn and start is not None else plot.center()
     return {"x": int(x), "z": int(z), "radius": radius}
 
 
@@ -488,7 +555,7 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
         "prompt": task.render(plot, start),
         "check": check if isinstance(check, dict) else None,
         "movements": dict(task.movements or {}),
-        "profile": {"multiplayer": False, "longRun": False, "spawnProtection": spawn_protection(task, plot),
+        "profile": {"multiplayer": False, "longRun": False, "spawnProtection": spawn_protection(task, plot, start),
                     "border": world_border(task, plot, s), "fastNights": fast_nights, "graderStops": grader_stops},
         "world": {"type": task.world.type, "seed": seed, "difficulty": task.world.difficulty,
                   "daylight": task.world.daylight, "dimension": task.world.dimension_id,
@@ -498,7 +565,8 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
                  "anchor": [lo[0] + task.anchor[0], lo[1] + task.anchor[1], lo[2] + task.anchor[2]]},
         "start": list(start),
         "inventory": dict(task.inventory or {}),
-        "budget": {"max_seconds": max_seconds, "max_cost_usd": max_cost},
+        "budget": {"max_seconds": max_seconds, "max_cost_usd": max_cost,
+                   **({"ends": {"at_dawn": int(task.end_at_dawn)}} if task.end_at_dawn else {})},
         "options": agent_options(task, plot, start),
         "tags": list(task.tags),
     }
@@ -568,8 +636,9 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         plot = arena.plot(trial)
     else:
         w = task.world
-        if w.spawn_protection or not w.keep_inventory or w.biome or not w.passive_mobs:
-            raise ValueError(f"{task.id}: spawn_protection, keep_inventory, biome and passive_mobs need a survival world")
+        if w.spawn_protection or not w.keep_inventory or w.biome or not w.passive_mobs or task.start.world_spawn:
+            raise ValueError(f"{task.id}: spawn_protection, keep_inventory, biome, passive_mobs and start.world_spawn "
+                             f"need a survival world")
         plot = arena.plot(trial, w.dimension, w.size, w.height)
         arena.set_difficulty(w.difficulty)
     arena.reset(plot)
@@ -594,6 +663,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         observer.move_to(plot)      # back over the plot: frames scan it
     for cmd in situation_commands(task.start, start):   # carve the cave / raise the shell before the player lands
         arena.rcon(cmd)
+    if task.start.world_spawn:          # the server's spawn (and so its spawn protection) moves to where the bot starts
+        arena.rcon("setworldspawn {} {} {}".format(*start))
     if task.start.time is not None:
         arena.set_time(task.start.time)
     if task.start.weather:
@@ -607,6 +678,7 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
     events: EventRunner | None = None
     herd: HerdWatcher | None = None
     start_food = None
+    day_clock = DayClock(arena.server_time, t0) if needs_day_clock(task) else None
 
     def drain_breaks() -> None:
         with contextlib.suppress(Exception):
@@ -639,12 +711,14 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         time.sleep(1.0)
 
         refusals: list = []
+        wears = "equipped" in grader_kinds(task.grader)       # read what it wears with each frame only when graded
 
         def after_step(label: str) -> None:
             drain_breaks()
             frames.append(Frame(label, observer.snapshot(plot), block_position(arena, a.bot_username),
                                 arena.server_inventory(a.bot_username), t=round(time.time() - t0, 1),
-                                stats=stats.read(), food=arena.server_food(a.bot_username)))
+                                stats=stats.read(), food=arena.server_food(a.bot_username),
+                                equipment=arena.server_equipment(a.bot_username) if wears else None))
 
         def live_context(after_now, states_now) -> Context:
             """The grading context on the world as it stands, read as the final capture reads it."""
@@ -658,7 +732,9 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                            refusals=list(refusals),
                            respawn=arena.server_respawn(a.bot_username) if grader_kinds(task.grader) & {"respawn"} else None,
                            setup=setup_placed, start=tuple(rec.start), broke=list(broke),
-                           food=arena.server_food(a.bot_username), herd=dict(herd.tally) if herd else None)
+                           food=arena.server_food(a.bot_username), herd=dict(herd.tally) if herd else None,
+                           equipment=arena.server_equipment(a.bot_username) if wears else None,
+                           day=day_clock.day if day_clock else None)
 
         def goal_met() -> bool:
             # the grader itself on the world as it stands, read as the final capture reads it; never for a grader
@@ -673,8 +749,14 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
             if ev.get("event") == "guard_refusal":
                 refusals.append({k: v for k, v in ev.items() if k != "event"})
 
-        live = live_gradable(task.grader) and LIVE_GRADE
+        live = stops_on_pass(task) and LIVE_GRADE
         fast = bool(task.fast_nights and task.world.daylight)
+        skipper = night_skipper(a.host, a.rcon_port, a.rcon_password, elog) if fast else None
+
+        def night_skip() -> None:
+            if day_clock is not None:
+                day_clock.poll()            # the night the skip ends, seen before the clock jumps past it
+            skipper()
         max_seconds = float(task.max_seconds or s.trial.max_seconds)
         max_cost = float(task.max_cost_usd or s.trial.max_cost_usd or 0.0)
         goal = build_goal(task, plot, start, s, trial, seed=seed if task.world.type == "survival" else None,
@@ -682,8 +764,9 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         ctx = TrialContext(task.id, goal, a.host, a.port, a.bot_username, s.arena.version, max_seconds, max_cost,
                            out_dir / f"trial_{trial}", hand_off=stand_in.logout, take_back=stand_in.login,
                            progress=progress, after_step=after_step, goal_met=goal_met if live else None,
-                           night_skip=night_skipper(a.host, a.rcon_port, a.rcon_password, elog) if fast else None,
-                           on_event=on_event, log=elog)
+                           night_skip=night_skip if fast else None, on_event=on_event, log=elog,
+                           dawns=day_clock.poll if day_clock else None,
+                           end_at_dawn=task.end_at_dawn if day_clock else None)
         rec.trace = {"agent": agent.name, "model": agent.model, "start_food": start_food}
         rec.trace.update(agent.run(ctx))
         if rec.trace.get("error"):          # the agent ended with stop = "error", or never wrote a trace
@@ -716,6 +799,11 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         rec.final_position = list(pos) if pos else None
         rec.final_dimension = final("dimension", lambda: arena.server_dimension(a.bot_username))
         rec.final_inventory = final("inventory", lambda: arena.server_inventory(a.bot_username)) or []
+        if "equipped" in grader_kinds(task.grader):
+            rec.final_equipment = final("equipment", lambda: arena.server_equipment(a.bot_username))
+        if day_clock is not None:
+            final("day", day_clock.poll)            # a dawn in the last seconds of the agent's run
+            rec.trace["dawns"] = list(day_clock.dawns)
         rec.final_respawn = final("respawn", lambda: arena.server_respawn(a.bot_username))   # last: it force-loads the bed's chunk
         rec.trace.setdefault("guard_refusals", [])
         drain_breaks()
@@ -727,6 +815,15 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
     rec.after = snapshot_to_json(after)
     d = diff(before, after)
     rec.diff = d.summary()
+    containers = None
+    if needs_containers(task.grader):
+        # the chests and barrels the bot placed, read from the server (the plot's chunks are loaded for the observer)
+        where = sorted(p for p, b in built(d).items() if b in CONTAINERS)
+        try:
+            containers = arena.server_containers(where)
+        except Exception as e:  # noqa: BLE001
+            print(f"(final containers not captured: {type(e).__name__}: {e})")
+        rec.trace["containers"] = [[*p, items] for p, items in (containers or {}).items()]
     if task.grader:
         gctx = Context(before, after, d, plot.volume, plot.floor_y if plot.flat else None,
                        tuple(rec.final_position) if rec.final_position else None, rec.final_inventory, frames,
@@ -734,7 +831,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                        after_states, arena.rcon, lambda text: task._fmt(text, plot, start).replace("{bot}", a.bot_username),
                        track=rec.trace["track"], seconds=rec.seconds, refusals=rec.trace["guard_refusals"],
                        respawn=rec.final_respawn, setup=setup_placed, start=tuple(rec.start), broke=list(broke),
-                       food=rec.final_food, herd=rec.trace.get("herd"))
+                       food=rec.final_food, herd=rec.trace.get("herd"), equipment=rec.final_equipment,
+                       containers=containers, day=day_clock.day if day_clock else None)
         rec.result = grade(task.grader, gctx).to_dict()
         agent_check = rec.trace.get("check")
         if isinstance(agent_check, dict) and agent_check.get("parts"):
@@ -780,6 +878,7 @@ def frame_diff_json(before: Snapshot, f: Frame) -> dict:
             "removed": [list(p) for p in dd.broken],
             "stats": dict(f.stats or {}),                        # the server's counters at this frame (deaths, damage...)
             "food": f.food,
+            **({"equipment": f.equipment} if f.equipment is not None else {}),
             "inventory": [{"name": i.get("name"), "count": i.get("count")} for i in (f.inventory or [])]}
 
 
