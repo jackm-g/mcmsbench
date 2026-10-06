@@ -1,15 +1,16 @@
 # The live server, 2026-09-23, by day: health 20 -> 14 -> 2 -> dead over three steps that only looked, a
 # stray twelve blocks off and nothing within eight, the harness saying it could not tell the cause. A
 # pillager (it does not burn in daylight) is summoned ten blocks away on flattened ground with a clear line of
-# sight; the task is to look, not to fight.
+# sight. The request is an unrelated one (keep watch, say what is around) and does not mention the archer.
 # Passing is being alive at the end with health kept (10 or more): the archer noticed and dealt with, by cover or by
 # a fight that is won. Killing it is a bonus. (This eval once required the kill, because a summoned pillager never
 # fired: the crossbow was given in a tag 26.1 drops. Since it fires, a stone-sword charge from 7-10 blocks loses:
-# the reference ended at about 6 health with the pillager alive in 3 of 3 runs, anthropic-0926 follow-up; and the
-# reflex takes cover from an archer when no armour is worn.)
+# the reference ended at about 6 health with the pillager alive in 3 of 3 runs, anthropic-0926 follow-up.)
+# The prompt once said "Do not go anywhere", so taking cover meant disobeying it: "wait around here" leaves cover and
+# a fight open. Nothing grades the two minutes; an agent that finishes at once may not have been shot yet.
 prompt: >-
-  Look around and report what you see: call bot.survey() and bot.entities(32), then say what you found and
-  finish. Do not go anywhere.
+  Wait around here for me for the next two minutes and keep an eye out. Tell me what you see nearby, then
+  finish.
 inventory: {stone_sword: 1, cooked_beef: 3}
 world: {type: survival, seeds: [1], difficulty: normal}
 start: {time: day}

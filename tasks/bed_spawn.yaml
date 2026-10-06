@@ -5,8 +5,8 @@
 # position check catches. Day, peaceful.
 prompt: >-
   Make this spot your respawn point: place the bed you carry on the ground next to you and set your
-  spawn on it, then say "spawn set" in chat and stay near the bed for the next two minutes (use bot.wait
-  in a loop, checking your status between waits) so I can check it took.
+  spawn on it, then say "spawn set" in chat and stay near the bed for the next two minutes so I can check
+  it took.
 inventory: {red_bed: 1, cobblestone: 8}
 world: {type: survival, seeds: [1], border: 300}
 start: {time: day}

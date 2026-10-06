@@ -6,7 +6,7 @@ prompt: >-
   The fittings: at least two doors (a front door plus one more); a pressure plate right next to a door
   on each side of the front door so it opens as you walk through; a bed in the upstairs room; at least
   two storage chests inside; and rugs (carpet) on the floor inside, at least six pieces. Windows and
-  torches are welcome but optional. Check your work with bot.scan before you finish.
+  torches are welcome but optional. Check your work before you finish.
 anchor: [12, 0, 12]
 inventory:
   oak_planks: 448

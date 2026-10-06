@@ -2,8 +2,7 @@ prompt: >-
   Make a lever-operated iron door: place an iron door on the ground at x={ax}, y={ay}, z={az} and a
   lever on a block next to it such that flipping the lever opens the door and flipping it back
   closes it. Iron doors only open with redstone power; a lever attached to a solid block powers
-  that block, and a door next to a powered block opens. Test it with bot.use_block on the lever
-  and bot.block_state on the door before you finish.
+  that block, and a door next to a powered block opens. Test it before you finish.
 anchor: [14, 0, 14]
 inventory: {iron_door: 1, lever: 2, cobblestone: 8, redstone: 8}
 grader:
