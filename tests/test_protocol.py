@@ -138,6 +138,18 @@ def test_a_passing_grade_stops_the_agent(tmp_path, monkeypatch):
     assert tr["stopped_by"] == "grader" and tr["stop"] == "grader_passed" and len(grades) >= 2   # the pass, then the confirm
 
 
+def test_a_lost_task_stops_the_agent(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_MODE", "hang")
+    monkeypatch.setattr(P, "LOST_CHECK_EVERY", 0.3)
+    reads = iter([None, None] + ["the player died"] * 100)
+    ctx, seen = context(tmp_path, lost=lambda: next(reads))
+    t = time.time()
+    tr = Agent(manifest(tmp_path)).run(ctx)
+    assert time.time() - t < 8
+    assert tr["stopped_by"] == "lost" and tr["stop"] == "task_lost"
+    assert any("the player died" in m and "can no longer pass" in m for m in seen["progress"])
+
+
 def test_a_pass_that_does_not_hold_lets_the_agent_play_on(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_MODE", "hang")
     monkeypatch.setattr(P, "GOAL_CHECK_EVERY", 0.3)

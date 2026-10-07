@@ -1,0 +1,98 @@
+# Raising cattle from a wheat farm that is already there: lure two loose cows into an empty pen with wheat, breed them
+# up, cull some, cook the beef. It measures husbandry carried through: harvesting the farm (and replanting it), walking
+# a herd that follows only while it can see the wheat (a pathfinder that runs ahead loses it), through a gate that is
+# then shut, breeding pairs as their cooldowns allow, killing adults and not calves, and the furnace.
+#
+# The world is seed 1's spawn carved flat to the border (96 across, the farmstead's land fills): a meadow with a work
+# spot at the spawn (a crafting table, a furnace, a chest with 8 coal), a fenced wheat farm east (9x5, a water channel
+# down its middle, 18 ripe and 18 at age 3, a gate on its west side), and an empty pen south-west, an oak fence ring
+# with 7x7 inside and a gate in the middle of its north side, shut. Two cows graze about 34 blocks from the pen's gate,
+# off to the south-east. Peaceful, the day frozen at 1000: no hostiles, no hunger, no nights, so only the husbandry is
+# tested. Random ticks at 10, so replanted wheat comes back within the trial.
+#
+# Breeding is forced: two cows cannot leave 4 in the pen and give beef, so the pair has to be bred. The herd watcher
+# ages calves 4x as fast (a calf is grown in about 5 minutes) and counts the ones the bot kills; parents still wait
+# 5 real minutes between calves. A rancher's timeline: the pair's calf at 0, another at 5, at 10 the pair and the first
+# two calves (grown) breed again: 6 cows. Cull 2 or 3 adults (1-3 beef each), cook 6, and 4 are left. About 20
+# minutes; the budget is 40.
+#
+# Graded: cooked beef carried; 4 or more cows (calves count) inside the pen at the end, and no calf killed in the trial
+# (the `herd` grader `within` the pen's inside); the pen's gate shut (`block_state` on the observer's states); no death.
+# Scored besides: wheat harvested, pairs bred, cows culled, the farm replanted (wheat on wet farmland, nearly the
+# whole field) and the base left whole (`intact` of setup, the crops and farmland aside).
+prompt: >-
+  Build up my herd with the wheat farm east of here. There are two cows grazing off to the south-east: get them into
+  the pen south-west of here (the gate is on its north side) and breed them up. When you're done I want at least 4
+  cows in the pen with the gate shut, and at least 6 cooked beef for me to take: the furnace is here and there's coal
+  in the chest. Don't kill any calves, and replant what you harvest.
+inventory: {stone_sword: 1}
+world:
+  type: survival
+  seeds: [1]
+  radius: 40
+  border: 96
+  difficulty: peaceful      # no hostiles, and natural spawning off: the herd is what the task put out and the bot bred
+  daylight: false
+  biome: plains
+  biome_radius: 64
+  passive_mobs: false
+  random_tick_speed: 10
+start: {time: 1000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+herd_watch: {types: [cow], grow: 4, strays: true}
+setup:
+  # the land: flat to the border (sx-48..sx+47); fills over the block limit are split
+  - "fill {sx-48} {sy} {sz-48} {sx+47} {sy+30} {sz+47} minecraft:air"
+  - "fill {sx-48} {sy-20} {sz-48} {sx+47} {sy-5} {sz+47} minecraft:stone"
+  - "fill {sx-48} {sy-4} {sz-48} {sx+47} {sy-2} {sz+47} minecraft:dirt"
+  - "fill {sx-48} {sy-1} {sz-48} {sx+47} {sy-1} {sz+47} minecraft:grass_block"
+  # the work spot by the spawn: the chest (8 coal), a crafting table, the furnace
+  - "setblock {sx+1} {sy} {sz-2} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:coal\",count:8}}]}}"
+  - "setblock {sx+2} {sy} {sz-2} minecraft:crafting_table"
+  - "setblock {sx+3} {sy} {sz-2} minecraft:furnace[facing=south]"
+  # the wheat farm, east: 9x5, a water channel down the middle row, 18 ripe to its north and 18 at age 3 to its south
+  - "fill {sx+5} {sy-1} {sz-6} {sx+13} {sy-1} {sz-2} minecraft:farmland[moisture=7]"
+  - "fill {sx+5} {sy-1} {sz-4} {sx+13} {sy-1} {sz-4} minecraft:water"
+  - "fill {sx+5} {sy} {sz-6} {sx+13} {sy} {sz-5} minecraft:wheat[age=7]"
+  - "fill {sx+5} {sy} {sz-3} {sx+13} {sy} {sz-2} minecraft:wheat[age=3]"
+  # its fence, a gate on the west side: cows kept off the crops
+  - "fill {sx+4} {sy} {sz-7} {sx+14} {sy} {sz-7} minecraft:oak_fence"
+  - "fill {sx+4} {sy} {sz-1} {sx+14} {sy} {sz-1} minecraft:oak_fence"
+  - "fill {sx+4} {sy} {sz-6} {sx+4} {sy} {sz-2} minecraft:oak_fence"
+  - "fill {sx+14} {sy} {sz-6} {sx+14} {sy} {sz-2} minecraft:oak_fence"
+  - "setblock {sx+4} {sy} {sz-4} minecraft:oak_fence_gate[facing=west,open=false]"
+  # the pen, south-west: an oak fence ring with 7x7 inside, its gate in the middle of the north side, shut
+  - "fill {sx-12} {sy} {sz+2} {sx-4} {sy} {sz+2} minecraft:oak_fence"
+  - "fill {sx-12} {sy} {sz+10} {sx-4} {sy} {sz+10} minecraft:oak_fence"
+  - "fill {sx-12} {sy} {sz+3} {sx-12} {sy} {sz+9} minecraft:oak_fence"
+  - "fill {sx-4} {sy} {sz+3} {sx-4} {sy} {sz+9} minecraft:oak_fence"
+  - "setblock {sx-8} {sy} {sz+2} minecraft:oak_fence_gate[facing=north,open=false]"
+  # nothing alive but the bot, then the herd: two cows off to the south-east
+  - "kill @e[type=!minecraft:player,x={sx-48},y={sy-40},z={sz-48},dx=96,dy=100,dz=96]"
+  - "summon minecraft:cow {sx+20} {sy} {sz+22} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+  - "summon minecraft:cow {sx+23} {sy} {sz+19} {{PersistenceRequired:1b,Tags:[\"herd\"]}}"
+stats: [deaths, walked, "killed:cow", "custom:animals_bred", "mined:wheat", "crafted:cooked_beef"]
+grader:
+  kind: milestones
+  required: [beef, penned, gate_shut, alive]
+  steps:
+    - {name: wheat,  weight: 1, check: {kind: stat, name: "mined:wheat", min: 4}}
+    - {name: bred,   weight: 2, check: {kind: stat, name: "custom:animals_bred", min: 2}}
+    - {name: culled, weight: 1, check: {kind: stat, name: "killed:cow", min: 2}}
+    - {name: beef,   weight: 3, check: {kind: inventory, item: cooked_beef, count: 6}}
+    - name: penned
+      weight: 4
+      says: "at least 4 cows (calves count) inside the pen at the end, and no calf killed during the trial"
+      check: {kind: herd, types: [cow], min_each: 4, max_baby_kills: 0, within: "{sx-11} {sy-1} {sz+3} {sx-5} {sy+2} {sz+9}"}
+    - name: gate_shut
+      weight: 1
+      says: "the pen's gate (the middle of its north side) shut at the end"
+      check: {kind: block_state, at: "{sx-8} {sy} {sz+2}", block: "*_fence_gate", state: {open: false}}
+    - {name: replanted,   weight: 2, check: {kind: hydrated, crop: wheat, min: 32, restore: 10}}
+    - {name: base_intact, weight: 1, check: {kind: intact, of: setup, exclude: [wheat, farmland]}}
+    - {name: alive,       weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and LLM trials
+max_turns: 40
+max_seconds: 2400
+exec_timeout: 300
+tags: [tier-c, survival, farming, animals, food, breeding]

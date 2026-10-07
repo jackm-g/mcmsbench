@@ -483,6 +483,41 @@ def needs_containers(spec) -> bool:
     return False
 
 
+TUNNEL_MARGIN = 16     # blocks round a task's tunnels kept loaded for setup: the room at a tunnel's end, its mobs
+
+
+@contextlib.contextmanager
+def area_loaded(rcon, box: tuple[int, int, int, int] | None, plot: Plot, timeout: float = 60.0, log=print):
+    """The chunks over `box` (x0, z0, x1, z1, grown by TUNNEL_MARGIN) force-loaded, and generated, while the block
+    runs: a setup that fills and summons 200 blocks from the bot gets "position is not loaded" otherwise. Let go
+    after, and the plot's own force-load (Arena.reset's) put back over any chunk the two shared. No box: nothing."""
+    if box is None:
+        yield
+        return
+    from .survival import chunk_blocks
+    cx0, cz0 = (box[0] - TUNNEL_MARGIN) >> 4, (box[1] - TUNNEL_MARGIN) >> 4
+    cx1, cz1 = (box[2] + TUNNEL_MARGIN) >> 4, (box[3] + TUNNEL_MARGIN) >> 4
+    loads = list(chunk_blocks(cx0, cz0, cx1, cz1))
+    for a, b, c, d in loads:
+        rcon(f"forceload add {a * 16} {b * 16} {c * 16 + 15} {d * 16 + 15}")
+    pending = [(cx, cz) for cx in range(cx0, cx1 + 1) for cz in range(cz0, cz1 + 1)]
+    deadline = time.time() + timeout
+    while pending:                       # a chunk the golden world never held generates first
+        pending = [(cx, cz) for cx, cz in pending if "passed" not in rcon(f"execute if loaded {cx * 16} 0 {cz * 16}")]
+        if not pending or time.time() > deadline:
+            break
+        time.sleep(1.0)
+    if pending:
+        log(f"[setup] {len(pending)} of the tunnels' chunks still not loaded after {timeout:.0f}s")
+    try:
+        yield
+    finally:
+        for a, b, c, d in loads:
+            rcon(f"forceload remove {a * 16} {b * 16} {c * 16 + 15} {d * 16 + 15}")
+        (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
+        rcon(f"forceload add {x0 - 16} {z0 - 16} {x1 + 16} {z1 + 16}")
+
+
 class far_surface:
     """`surface(x, z)` for resolve_start on terrain. A start hundreds of blocks from the plot (start.distance) is outside
     the observer's view, so the observer flies there first, which also generates the chunks; `moved` tells the caller
@@ -673,7 +708,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
     stand_in.login()
     t0 = time.time()
     herd_types = [str(t) for t in (task.herd_watch or {}).get("types") or []]
-    stats = Stats(arena.rcon, a.bot_username, task.stats + [f"killed:{t}" for t in herd_types])   # the watcher reads them
+    stats = Stats(arena.rcon, a.bot_username, task.stats + [f"killed:{t}" for t in herd_types]
+                  + (["deaths"] if task.fail_on_death and "deaths" not in task.stats else []))   # the watcher reads them
     tracker: PositionTracker | None = None
     events: EventRunner | None = None
     herd: HerdWatcher | None = None
@@ -690,11 +726,15 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         stats.setup()
         start_food = arena.drain_food(a.bot_username, task.start.food) if task.start.food is not None else None
         tracker = PositionTracker(a.host, a.rcon_port, a.rcon_password, a.bot_username, t0)
-        for cmd in task.render_setup(plot, start, a.bot_username):
-            out = arena.rcon(cmd)
-            elog.emit("setup", cmd=cmd[:300], out=out[:300])
-            if any(w in out for w in ("Unknown", "Incorrect", "Expected", "Could not", "rror", "nvalid", "Malformed")):
-                print(f"[setup] {cmd!r} -> {out[:160]}")          # spreadplayers with no ground, a bad NBT tag
+        tunnel_cmds, tunnel_box = task.render_tunnels(plot, start)
+        far = task.render_load_area(plot, start, also=tunnel_box)
+        with area_loaded(arena.rcon, far, plot, log=print):    # tunnels, and what setup builds out of the plot's reach
+            for cmd in tunnel_cmds + task.render_setup(plot, start, a.bot_username):
+                out = arena.rcon(cmd)
+                elog.emit("setup", cmd=cmd[:300], out=out[:300])
+                if any(w in out for w in ("Unknown", "Incorrect", "Expected", "Could not", "rror", "nvalid", "Malformed",
+                                          "not loaded")):
+                    print(f"[setup] {cmd!r} -> {out[:160]}")      # spreadplayers with no ground, a bad NBT tag
         # the baseline is the world as the player finds it: what setup (and the start situation) placed is not the
         # agent's work. Graders that check a structure the task provides take `with_setup: true`.
         time.sleep(1.0)                     # the setup's block updates reach the observer
@@ -766,7 +806,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                            progress=progress, after_step=after_step, goal_met=goal_met if live else None,
                            night_skip=night_skip if fast else None, on_event=on_event, log=elog,
                            dawns=day_clock.poll if day_clock else None,
-                           end_at_dawn=task.end_at_dawn if day_clock else None)
+                           end_at_dawn=task.end_at_dawn if day_clock else None,
+                           lost=(lambda: "the player died" if (stats.read() or {}).get("deaths", 0) > 0 else None) if task.fail_on_death else None)
         rec.trace = {"agent": agent.name, "model": agent.model, "start_food": start_food}
         rec.trace.update(agent.run(ctx))
         if rec.trace.get("error"):          # the agent ended with stop = "error", or never wrote a trace

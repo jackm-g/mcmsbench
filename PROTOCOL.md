@@ -166,6 +166,9 @@ a frame every 30 seconds itself, so an agent that sends no subgoal events is not
 - **The task's last dawn:** when `budget.ends.at_dawn` is set, the bench holds the agent still at that dawn, takes its
   frame, then sends SIGTERM and SIGCONT. The record says `stop: dawn_reached`. `profile.graderStops` is false for such
   a task: passing early does not end it.
+- **A death, where the task ends on one:** a task with `fail_on_death` is failed at the player's first death. The bench
+  reads the server's death counter about every 3 s; at a death it holds the agent still, takes a `lost` frame, then
+  sends SIGTERM and SIGCONT. The record says `stop: task_lost`.
 
 **Capabilities** are what a task may need beyond this protocol (`requires:` in its YAML):
 

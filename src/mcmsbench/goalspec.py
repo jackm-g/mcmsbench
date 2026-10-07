@@ -74,6 +74,11 @@ UNCOVERED = {
     "herd": "the livestock the server counts in the plot at the end",
     "equipped": "the armour worn and items held, from the server (worn, not carried)",
     "intact": "the house built by {at} left standing: at most {max_broken} of its blocks broken from then on",
+    "intact:setup": "the base the task started you in left as it was: none of its blocks broken or changed (crops "
+                    "harvested, farmland trampled), from the whole trial's break log and the finished world",
+    "walkable": "a way on foot between two places in the finished world (doors and gates open)",
+    "container": "the container at {at} holding what the task asks for, read from the server at the end",
+    "block_state": "the block at {at} in the finished world, in the state {state}",
     "day": "the trial lasting into day {min} (day 1 is the one it starts in; each dawn begins the next)",
     "food_stock": "food worth {min_points} points, carried or in the chests and barrels you placed",
     "exit_route": "the bot's walk out of the finished house: up to the top story, then out on foot (down the stairs, "
@@ -102,9 +107,11 @@ def composite_from_grader(grader: dict, plot) -> dict:
         name = str(m.get("name"))
         live = _live_part(spec, plot)
         if live is None:
-            says = UNCOVERED.get(str(spec.get("kind")), "a check an agent cannot read live")
+            key = "intact:setup" if spec.get("kind") == "intact" and spec.get("of") == "setup" else str(spec.get("kind"))
+            says = UNCOVERED.get(key, "a check an agent cannot read live")
             with contextlib.suppress(KeyError, IndexError, ValueError):
                 says = says.format(**spec)
+            says = str(m.get("says") or says)       # the task's own words, where the kind's are too general
             u = {"name": name, "kind": spec.get("kind"), "says": says}
             if spec.get("kind") == "stat":
                 # the counter and what it must reach, for an agent that keeps its own count (of its kills, say):

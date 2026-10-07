@@ -21,6 +21,8 @@ BUILTIN = {
     # also records trace.distance_travelled from per-step positions, which is what to use.
     "walked": ("minecraft.custom:minecraft.walk_one_cm", 100),          # -> blocks
     "sprinted": ("minecraft.custom:minecraft.sprint_one_cm", 100),
+    "boated": ("minecraft.custom:minecraft.boat_one_cm", 100),          # -> blocks (a diagnostic: see walked's note)
+    "swum": ("minecraft.custom:minecraft.swim_one_cm", 100),
     "sleep": ("minecraft.custom:minecraft.sleep_in_bed", 1),
     "jumps": ("minecraft.custom:minecraft.jump", 1),
     "time_since_death": ("minecraft.custom:minecraft.time_since_death", 20),  # -> seconds

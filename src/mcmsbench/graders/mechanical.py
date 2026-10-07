@@ -285,6 +285,51 @@ def functional(ctx, spec: dict) -> object:
                   {f"assert_{i + 1}": e["ok"] for i, e in enumerate(e for e in log if "ok" in e)}, {"log": log})
 
 
+@_grader("container")
+def container(ctx, spec: dict) -> object:
+    """The chest (or barrel, or any block that holds items) at `at` ("x y z", templated like setup) holds at least
+    `count` (default 1) of `item` (a glob or a list), read from the server at the end. Unlike food_stock's
+    in_containers it reads a container the task placed, not one the bot did: a chest a setup stood by the start,
+    where the thing fetched has to be put. Its chunk is force-loaded for the read, so a bot that ends far away still
+    has the chest read (a chunk already held, the plot's, is left as it was: the read changes nothing, so it can run
+    mid-trial and stop the agent on a pass). A chest broken (its items on the floor), or a bucket of water where an
+    axolotl should be, fails, and the detail says what the chest holds. `items: {torch: 32, bread: 16}` instead asks
+    for each of several (a delivery): one check each, the score their mean share."""
+    from ..arena import parse_inventory
+    from . import Result, _matches
+    if ctx.rcon is None:
+        return Result(False, 0.0, {"live_world": False}, {"reason": "no server handle at grade time"})
+    at = _resolve(ctx, str(spec["at"]))
+    x, y, z = (int(v) for v in at.split())
+    need = int(spec.get("count", 1))
+    held = "is marked" in ctx.rcon(f"forceload query {x} {z}")     # the plot's own chunks stay loaded after
+    if not held:
+        ctx.rcon(f"forceload add {x} {z}")
+    try:
+        out = ctx.rcon(f"data get block {x} {y} {z} Items")
+    finally:
+        if not held:
+            ctx.rcon(f"forceload remove {x} {z}")
+    found = "not a block entity" not in out and "rror" not in out
+    items = parse_inventory(out) if found else []
+    holds: dict[str, int] = {}
+    for i in items:
+        holds[i["name"]] = holds.get(i["name"], 0) + i["count"]
+    if spec.get("items"):
+        want = {str(k): int(v) for k, v in spec["items"].items()}
+        have_each = {k: sum(i["count"] for i in items if _matches(i["name"], k)) for k in want}
+        checks = {"container_found": found, **{f"{k}_delivered": have_each[k] >= n for k, n in want.items()}}
+        score = sum(min(1.0, have_each[k] / n) if n else 1.0 for k, n in want.items()) / len(want)
+        return Result(all(checks.values()), score, checks,
+                      {"at": [x, y, z], "have": have_each, "need": want, "holds": holds,
+                       **({} if found else {"reason": out[:120]})})
+    have = sum(i["count"] for i in items if _matches(i["name"], spec["item"]))
+    return Result(have >= need, min(1.0, have / need) if need else 1.0,
+                  {"container_found": found, "holds_item": have >= need},
+                  {"at": [x, y, z], "have": have, "need": need, "holds": holds,
+                   **({} if found else {"reason": out[:120]})})
+
+
 @_grader("hydrated")
 def hydrated(ctx, spec: dict) -> object:
     """Crops that stay watered: `crop` blocks (default wheat) in the final world whose farmland is still hydrated

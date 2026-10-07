@@ -1,0 +1,86 @@
+# A delivery by boat: everything in the chest on the dock taken across about 150 blocks of open water to the chest in
+# an island's lighthouse. It measures what no other task does: a boat made (the logs are in the cargo chest, the
+# crafting table on the dock), put on the water and boarded, steered on a bearing over water with nothing to steer by
+# until the lighthouse's lanterns come into view (view distance is 96), a landing, and the chests at both ends: all of
+# the cargo out, none of it spent, all of it in.
+#
+# The world is seed 1's spawn carved into a shore and a sea: a flat shore west (sx-30..sx+9), and east of it a basin
+# 171 x 163 walled and floored in stone to the shore's level, sand under 10 of water. The dock runs out 7 blocks; the
+# cargo chest at its end holds 32 torches, 16 bread, 16 coal and 3 oak logs (12 planks: a boat is 5, a chest boat
+# 13, so a plain boat). The island is sand 13 across round sx+150, the lighthouse a stone brick tower 5x5 and 12 high
+# on it, its door to the west up a step, a torch inside and the chest, sea lanterns on its roof. Normal, the day
+# frozen at noon: nothing spawns in the open.
+#
+# The boat is the way across, not just a way: swimming is possible, so `sailed` is required, and four drowned
+# (persistent, summoned without tridents) hold the water between the shore and the island, which a swimmer meets and
+# a boat outruns. `sailed` is a gated event: once the player is seen riding a boat (`on vehicle`, a #boat) inside the
+# middle of the sea (sx+40..sx+120), it is tagged, and a functional assert reads the tag. The server's boat counter
+# (`boated`) is kept as a diagnostic only: like walked, it may not credit a mineflayer client's movement.
+#
+# The island is outside the plot (spawn +-48): `load_area` keeps the sea's chunks loaded for the setup, the chest is
+# read over RCON (the container grader force-loads it), and `landed` comes from the position track.
+prompt: >-
+  The lighthouse keeper on the island about 150 blocks east of here needs supplies. Everything is in the chest at the
+  end of the dock: take all of it (the torches, the bread and the coal) out to the chest inside the lighthouse. It's
+  too far to swim, and there are drowned out there, so make a boat: there's wood in the chest and a crafting table on
+  the dock.
+inventory: {bread: 4}
+world: {type: survival, seeds: [1], border: 400, difficulty: normal, daylight: false}
+start: {time: 6000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+load_area: "{sx-30} {sz-81} {sx+180} {sz+81}"
+setup:
+  # the ground: clear above, a flat shore to the west (fills over the block limit are split)
+  - "fill {sx-30} {sy} {sz-81} {sx+180} {sy+30} {sz+81} minecraft:air"
+  - "fill {sx-30} {sy-20} {sz-81} {sx+9} {sy-5} {sz+81} minecraft:stone"
+  - "fill {sx-30} {sy-4} {sz-81} {sx+9} {sy-2} {sz+81} minecraft:dirt"
+  - "fill {sx-30} {sy-1} {sz-81} {sx+9} {sy-1} {sz+81} minecraft:grass_block"
+  # the sea: a stone basin to the shore's level (its rim holds the water in), a sand floor, 10 of water
+  - "fill {sx+10} {sy-12} {sz-81} {sx+180} {sy-1} {sz+81} minecraft:stone"
+  - "fill {sx+10} {sy-11} {sz-80} {sx+179} {sy-11} {sz+80} minecraft:sand"
+  - "fill {sx+10} {sy-10} {sz-80} {sx+179} {sy-1} {sz+80} minecraft:water"
+  # the dock: 7 out over the water, the cargo chest and a crafting table at its end
+  - "fill {sx+10} {sy-1} {sz-1} {sx+16} {sy-1} {sz+1} minecraft:oak_planks"
+  - "setblock {sx+16} {sy} {sz-1} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:torch\",count:32}},{{Slot:1b,id:\"minecraft:bread\",count:16}},{{Slot:2b,id:\"minecraft:coal\",count:16}},{{Slot:3b,id:\"minecraft:oak_log\",count:3}}]}}"
+  - "setblock {sx+16} {sy} {sz+1} minecraft:crafting_table"
+  # the island: sand 13x13 from the sea floor, its top one above the water
+  - "fill {sx+144} {sy-11} {sz-6} {sx+156} {sy} {sz+6} minecraft:sand"
+  # the lighthouse: stone bricks 5x5, 12 high, hollow; the door west up a step, a torch and the chest inside
+  - "fill {sx+148} {sy+1} {sz-2} {sx+152} {sy+12} {sz+2} minecraft:stone_bricks hollow"
+  - "setblock {sx+148} {sy+2} {sz} minecraft:oak_door[facing=west,half=lower]"
+  - "setblock {sx+148} {sy+3} {sz} minecraft:oak_door[facing=west,half=upper]"
+  - "setblock {sx+147} {sy+1} {sz} minecraft:stone_bricks"
+  - "setblock {sx+149} {sy+2} {sz-1} minecraft:torch"
+  - "setblock {sx+151} {sy+2} {sz+1} minecraft:chest[facing=west]"
+  - "fill {sx+149} {sy+13} {sz-1} {sx+151} {sy+13} {sz+1} minecraft:sea_lantern"
+  # nothing alive but the bot, then the drowned: four, mid-depth, between the shore and the island
+  - "kill @e[type=!minecraft:player,x={sx-30},y={sy-25},z={sz-81},dx=210,dy=60,dz=162]"
+  - "summon minecraft:drowned {sx+45} {sy-6} {sz+6} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
+  - "summon minecraft:drowned {sx+70} {sy-6} {sz-8} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
+  - "summon minecraft:drowned {sx+95} {sy-6} {sz+4} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
+  - "summon minecraft:drowned {sx+120} {sy-6} {sz-5} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
+events:
+  - at: 0      # sailed: the player riding a boat over the middle of the sea
+    when: "execute as {bot} on vehicle if entity @s[type=#minecraft:boat,x={sx+40},y={sy-12},z={sz-80},dx=80,dy=20,dz=160]"
+    run: "tag {bot} add sailed"
+stats: [deaths, damage_taken, boated, swum, "crafted:oak_boat", "killed:drowned"]
+grader:
+  kind: milestones
+  required: [sailed, delivered, alive]
+  steps:
+    - {name: boat,   weight: 1, check: {kind: stat, name: "crafted:oak_boat", min: 1}}
+    - name: sailed
+      weight: 2
+      says: "you rode a boat out over the middle of the sea (not swam it)"
+      check: {kind: functional, steps: [{assert: "execute if entity @a[name={bot},tag=sailed]"}]}
+    - {name: landed, weight: 1, check: {kind: position, target_rel: [150, 0], tolerance: 8, y_tolerance: 12}}
+    - name: delivered
+      weight: 4
+      says: "the lighthouse chest holds all the cargo: 32 torches, 16 bread and 16 coal"
+      check: {kind: container, at: "{sx+151} {sy+2} {sz+1}", items: {torch: 32, bread: 16, coal: 16}}
+    - {name: alive,  weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and LLM trials
+max_turns: 25
+max_seconds: 1500
+exec_timeout: 300
+tags: [tier-c, survival, navigation, boat, water, long_travel, containers]

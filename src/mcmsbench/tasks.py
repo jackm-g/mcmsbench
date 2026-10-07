@@ -9,7 +9,7 @@ import yaml
 
 from .arena import Plot
 from .config import PROFILE_DIR, TASK_DIR
-from .start import StartSpec
+from .start import StartSpec, tunnel_commands
 
 
 @dataclass
@@ -75,10 +75,17 @@ class Task:
     scripted: bool = True             # False: no reference solutions in evals/scripted/<id>.py (--scripted/--broken refuse it)
     fast_nights: bool = True          # once the harness has the bot enclosed for the night, jump to morning (evals only;
                                       # needs world.daylight): a night is 10 real minutes of waiting otherwise
+    fail_on_death: bool = False       # the trial ends at the player's first death: a required `alive` part can no longer
+                                      # pass, and what follows (a respawn far from the work) grades nothing
     end_at_dawn: int | None = None    # the trial ends at this dawn (2: when day 3 begins), whatever the agent is doing: the
                                       # bench counts dawns, takes a `dawn_N` frame at each, and never stops it on a pass
     requires: list[str] = field(default_factory=list)   # agent capabilities the grading depends on (protocol.CAPABILITIES):
                                                         # an agent without one is run, and its trial carries a caveat
+    tunnels: list[dict] = field(default_factory=list)   # [{path: [[dx, dy, dz], ...], width: 3, height: 3}]: walkable tunnels
+                                                        # cut from the start (start.tunnel_commands), before setup, with
+                                                        # their chunks force-loaded however far they run
+    load_area: str | None = None      # "x0 z0 x1 z1" (templated): chunks kept loaded while setup runs, for a setup that
+                                      # builds far outside the plot (an island 150 blocks off), tunnels' own boxes besides
     herd_watch: dict | None = None    # {types: [cow, chicken], grow: 4, poll: 2}: the runner's HerdWatcher tags the babies of
                                       # those kinds, counts the ones the bot kills (the `herd` grader's max_baby_kills) and
                                       # ages them `grow` times as fast (a calf is 20 real minutes otherwise); `strays: true`
@@ -94,6 +101,33 @@ class Task:
         dim = getattr(plot, "dimension", "minecraft:overworld")
         prefix = "" if dim == "minecraft:overworld" else f"execute in {dim} run "
         return [prefix + piece for c in self.setup for piece in split_fill(self._fmt(c, plot, start).replace("{bot}", bot))]
+
+    def render_tunnels(self, plot: Plot, start: tuple[int, int, int] | None = None,
+                       ) -> tuple[list[str], tuple[int, int, int, int] | None]:
+        """The `tunnels`' commands, cut from the bot's start, and the (x0, z0, x1, z1) they cover (None: no tunnels).
+        Run before setup, so what setup places along them (ore in a wall, a mob on the way) lands in the cut."""
+        if not self.tunnels:
+            return [], None
+        at = start or plot.center()
+        cmds: list[str] = []
+        boxes = []
+        for t in self.tunnels:
+            c, box = tunnel_commands(t["path"], at, int(t.get("width", 3)), int(t.get("height", 3)))
+            cmds += [piece for cmd in c for piece in split_fill(cmd)]
+            boxes.append(box)
+        return cmds, (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+    def render_load_area(self, plot: Plot, start: tuple[int, int, int] | None = None,
+                         also: tuple[int, int, int, int] | None = None) -> tuple[int, int, int, int] | None:
+        """The (x0, z0, x1, z1) to keep loaded while setup runs: `load_area`, templated, joined with `also` (the
+        tunnels' box). None when there is neither."""
+        boxes = [b for b in (also,) if b is not None]
+        if self.load_area:
+            v = [int(n) for n in self._fmt(str(self.load_area), plot, start).split()]
+            boxes.append((min(v[0], v[2]), min(v[1], v[3]), max(v[0], v[2]), max(v[1], v[3])))
+        if not boxes:
+            return None
+        return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
 
     def render_events(self, plot: Plot, start: tuple[int, int, int] | None = None,
                       bot: str = "player") -> list[tuple[float, str] | tuple[float, str, str]]:

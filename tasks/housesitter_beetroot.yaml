@@ -1,0 +1,100 @@
+# Housesitting, with a job that adds to the base: put in a new beetroot farm at a player's lived-in base without
+# wrecking it. Most live requests are milestones at a base the players have already built, and this one works inside
+# it: a house with a door, glass, torches and a bed; a fenced wheat farm with ripe wheat and a water channel that must
+# not be harvested or trampled; and the seeds, which the bot does not carry. The prompt says which chest they are in:
+# the one by the bed, inside the house, through the door. The other chest holds wheat seeds, which are not the job.
+#
+# The bot is the housesitter, not the owner: no `own` boxes, so the live guard treats the base as someone else's.
+# Its inventory is nearly full: 32 stacks of cobblestone, 6 bread and a stone pickaxe with five uses left leave two
+# free slots, and the chest's seeds, hoe and bucket take three: making room is part of the job.
+#
+# Prod terms (Hard, a death drops everything), but the biome is the terrain's own: freezing water is farm_in_snow's
+# lesson, not this one's. The base is the old spawn, the graded plot is 24 round it, and the bot is placed there.
+# The world spawn, and so spawn protection and a death without a bed, is 80 blocks east (start.world_spawn).
+# The arena's mob_griefing is off, so a zombie cannot break the door and a creeper cannot hole the house: every block
+# the base loses is the bot's doing. Start at time 9000: dusk falls about two and a half minutes in, mid-task.
+#
+# Graded: 16 or more beetroot crops whose farmland stays hydrated through a burst of random ticks (the hydrated
+# grader); every block the setup placed (house, door, glass, torches, bed, chests, fence, gate, farmland, wheat)
+# still there and never broken (`intact` of setup, zero tolerance); a way on foot from inside the house, out through
+# its door, to the far edge of the yard (`walkable`); and no death.
+profile: prod
+world: {biome: null, radius: 24}
+prompt: >-
+  I'm away for a bit. While I'm gone, put in a new beetroot farm for me on the open ground west of my house: at
+  least 16 beetroot planted, on farmland that's properly watered so it actually grows. The beetroot seeds are in the
+  chest next to my bed, with a hoe and a bucket. Don't break or block anything of mine, and leave the wheat alone:
+  I'll harvest it myself.
+inventory: {cobblestone: 2048, bread: 6}
+start: {time: 9000, weather: clear, distance: 80, bearing: 90, world_spawn: true}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+stats: [deaths, damage_taken, kills, walked, "used:beetroot_seeds"]
+setup:
+  # the yard: 29x29 of grass round the old spawn, clear 16 up (no tree tops left hanging), dirt below
+  - "fill {sx-14} {sy} {sz-14} {sx+14} {sy+16} {sz+14} minecraft:air"
+  - "fill {sx-14} {sy-5} {sz-14} {sx+14} {sy-2} {sz+14} minecraft:dirt"
+  - "fill {sx-14} {sy-1} {sz-14} {sx+14} {sy-1} {sz+14} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,x={sx},y={sy},z={sz},distance=..40]"
+  # the house, north of the yard: 7x7 outside, a plank floor, walls three high, a flat roof, cobblestone corners
+  - "fill {sx-3} {sy-1} {sz-11} {sx+3} {sy+3} {sz-5} minecraft:spruce_planks hollow"
+  - "fill {sx-3} {sy} {sz-11} {sx-3} {sy+2} {sz-11} minecraft:cobblestone"
+  - "fill {sx+3} {sy} {sz-11} {sx+3} {sy+2} {sz-11} minecraft:cobblestone"
+  - "fill {sx-3} {sy} {sz-5} {sx-3} {sy+2} {sz-5} minecraft:cobblestone"
+  - "fill {sx+3} {sy} {sz-5} {sx+3} {sy+2} {sz-5} minecraft:cobblestone"
+  - "setblock {sx-2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx+2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx-3} {sy+1} {sz-8} minecraft:glass"
+  - "setblock {sx+3} {sy+1} {sz-8} minecraft:glass"
+  - "setblock {sx} {sy+1} {sz-11} minecraft:glass"
+  # the door, in the middle of the south wall, and a torch either side of it
+  - "setblock {sx} {sy} {sz-5} minecraft:spruce_door[facing=south,half=lower]"
+  - "setblock {sx} {sy+1} {sz-5} minecraft:spruce_door[facing=south,half=upper]"
+  - "setblock {sx-1} {sy+1} {sz-4} minecraft:wall_torch[facing=south]"
+  - "setblock {sx+1} {sy+1} {sz-4} minecraft:wall_torch[facing=south]"
+  # inside: the bed in the north-west corner, the seed chest beside it, a crafting table and furnace, the larder
+  - "setblock {sx-2} {sy} {sz-10} minecraft:white_bed[facing=north,part=head]"
+  - "setblock {sx-2} {sy} {sz-9} minecraft:white_bed[facing=north,part=foot]"
+  - "setblock {sx-1} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:beetroot_seeds\",count:24}},{{Slot:1b,id:\"minecraft:iron_hoe\",count:1}},{{Slot:2b,id:\"minecraft:bucket\",count:1}},{{Slot:5b,id:\"minecraft:string\",count:4}}]}}"
+  - "setblock {sx+1} {sy} {sz-10} minecraft:crafting_table"
+  - "setblock {sx+2} {sy} {sz-10} minecraft:furnace[facing=south]"
+  - "setblock {sx+2} {sy} {sz-7} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:wheat_seeds\",count:32}},{{Slot:1b,id:\"minecraft:wheat\",count:7}},{{Slot:2b,id:\"minecraft:bread\",count:5}},{{Slot:3b,id:\"minecraft:coal\",count:9}}]}}"
+  - "setblock {sx-2} {sy+1} {sz-6} minecraft:wall_torch[facing=north]"
+  - "setblock {sx+2} {sy+1} {sz-10} minecraft:wall_torch[facing=south]"
+  # the wheat farm, south-east: an oak fence round 7x5 of farmland, a gate on its west side, a water channel down the
+  # middle, ripe wheat in the two north rows and half-grown wheat in the two south ones, a torch on each corner post
+  - "fill {sx+3} {sy} {sz+1} {sx+11} {sy} {sz+1} minecraft:oak_fence"
+  - "fill {sx+3} {sy} {sz+7} {sx+11} {sy} {sz+7} minecraft:oak_fence"
+  - "fill {sx+3} {sy} {sz+2} {sx+3} {sy} {sz+6} minecraft:oak_fence"
+  - "fill {sx+11} {sy} {sz+2} {sx+11} {sy} {sz+6} minecraft:oak_fence"
+  - "setblock {sx+3} {sy} {sz+3} minecraft:oak_fence_gate[facing=west]"
+  - "fill {sx+4} {sy-1} {sz+2} {sx+10} {sy-1} {sz+6} minecraft:farmland[moisture=7]"
+  - "fill {sx+4} {sy-1} {sz+4} {sx+10} {sy-1} {sz+4} minecraft:water"
+  - "fill {sx+4} {sy} {sz+2} {sx+10} {sy} {sz+3} minecraft:wheat[age=7]"
+  - "fill {sx+4} {sy} {sz+5} {sx+10} {sy} {sz+6} minecraft:wheat[age=4]"
+  - "setblock {sx+3} {sy+1} {sz+1} minecraft:torch"
+  - "setblock {sx+11} {sy+1} {sz+1} minecraft:torch"
+  - "setblock {sx+3} {sy+1} {sz+7} minecraft:torch"
+  - "setblock {sx+11} {sy+1} {sz+7} minecraft:torch"
+  # a pond in the yard's south-west, its surface at the ground's level: the water a new farm can be built round
+  - "fill {sx-10} {sy-1} {sz+6} {sx-8} {sy-1} {sz+8} minecraft:water"
+  # the housesitter: in the yard outside the door, with a pickaxe that has five uses left
+  - "give {bot} minecraft:stone_pickaxe[damage=126]"
+  - "tp {bot} {sx} {sy} {sz-2}"
+grader:
+  kind: milestones
+  required: [watered, base_intact, door, alive]
+  steps:
+    - {name: planted,     weight: 2, check: {kind: blocks, block: beetroots, min: 16}}
+    - {name: watered,     weight: 4, check: {kind: hydrated, crop: beetroots, min: 16, ticks: 400, wait: 12, restore: 3}}
+    - {name: base_intact, weight: 3, check: {kind: intact, of: setup, max_broken: 0}}
+    - name: door
+      weight: 2
+      hold: true
+      says: "a way on foot from inside the house, out through its door, to the far (south) edge of the yard"
+      check: {kind: walkable, from: "{sx} {sy} {sz-8}", to: "{sx-13} {sy} {sz+12} {sx+13} {sy} {sz+13}"}
+    - {name: alive,       weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and LLM trials
+max_turns: 20
+max_seconds: 900
+exec_timeout: 240
+tags: [tier-c, survival, prod, farming, base, housekeeping, night]

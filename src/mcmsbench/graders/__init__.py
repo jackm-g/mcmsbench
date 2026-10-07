@@ -197,10 +197,16 @@ def exact(ctx: Context, spec: dict) -> Result:
 
 @grader("position")
 def position(ctx: Context, spec: dict) -> Result:
-    """Bot ends within `tolerance` blocks (xz, and optional y) of a plot-relative target."""
+    """Bot ends within `tolerance` blocks (xz, and optional y) of a plot-relative target. `target_start: [dx, dy, dz]`
+    is off where the bot started instead: a place that moves with a start's random_radius (a cave dug out from it)."""
     if ctx.bot_position is None:
         return Result(False, 0.0, {"has_position": False})
-    if "target_abs" in spec:                       # "spawn" (plot centre) or [x, y, z]
+    if "target_start" in spec:
+        if ctx.start is None:
+            return Result(False, 0.0, {"has_start": False})
+        dx, dy, dz = spec["target_start"]
+        tx, ty, tz = ctx.start[0] + dx, ctx.start[1] + dy, ctx.start[2] + dz
+    elif "target_abs" in spec:                       # "spawn" (plot centre) or [x, y, z]
         t = spec["target_abs"]
         tx, ty, tz = ctx.center if t == "spawn" else tuple(t)
     elif "target_rel" in spec:                     # [dx, dz] from the plot centre / spawn (ground level unknown), or [dx, dy, dz]
@@ -613,7 +619,7 @@ def level_site(ctx: Context, spec: dict) -> Result:
     return Result(all(checks.values()), sum(checks.values()) / 2, checks, lv)
 
 
-LIVE_KINDS = {"functional", "entity_inside", "respawn", "hydrated", "herd", "day"}   # graded against the server's final state: evaluated once, at the end
+LIVE_KINDS = {"functional", "entity_inside", "respawn", "hydrated", "herd", "day", "container"}   # graded against the server's final state: evaluated once, at the end
 TRAJECTORY_KINDS = {"exit_route", "intact"}   # read the whole trial (frames, track, what broke): evaluated once, on the full context
 
 
@@ -843,7 +849,13 @@ def intact(ctx: Context, spec: dict) -> Result:
     """The bot's house stood its ground after it was built: the shell of what it had built by the frame labelled `at`
     (`dawn_1`: the house it slept in), and what it placed within that shell, lost at most `max_broken` blocks from then
     on. Lost: broken in the trial's break log after that frame (patched or not), or gone from the final world. The
-    house mined into for its stone, walled through instead of using the door, dug out from under its bed."""
+    house mined into for its stone, walled through instead of using the door, dug out from under its bed.
+
+    `of: setup`: someone else's base instead, the blocks the task's setup built (ctx.setup, natural blocks left out),
+    from the start. Lost: broken at any time, gone, or turned into another block (farmland trampled to dirt, wheat to
+    air); `exclude` (globs) leaves those setup blocks out."""
+    if spec.get("of") == "setup":
+        return _intact_setup(ctx, spec)
     from ..world.volume import diff as _diff
     at = str(spec.get("at", "dawn_1"))
     ref = next((f for f in ctx.frames if f.label == at), None)
@@ -864,6 +876,53 @@ def intact(ctx: Context, spec: dict) -> Result:
     return Result(ok, score, {"house_found": True, "intact": ok},
                   {"house_blocks": len(house), "lost": len(lost), "allowed": allow, "since": {"frame": at, "t": t_ref},
                    "broken": [list(p) for p in sorted(broke)[:12]], "gone": [list(p) for p in sorted(gone)[:12]]})
+
+
+def _intact_setup(ctx: Context, spec: dict) -> Result:
+    from ..tables import is_natural
+    exclude = spec.get("exclude") or []
+    # what was built, not the ground: a setup fill that levels a yard places grass and dirt into the terrain's dips
+    # (and water into a pond), and tilling or scooping them is not damage
+    base = {p: b for p, b in (ctx.setup or {}).items() if not is_natural(b) and not (exclude and _matches(b, exclude))}
+    if not base:
+        return Result(False, 0.0, {"base_found": False}, {"reason": "the setup placed nothing to keep"})
+    broke = {tuple(b[1:4]) for b in ctx.broke if tuple(b[1:4]) in base}
+    changed = {p: ctx.after.get(p, "air") for p, b in base.items() if ctx.after.get(p) != b}
+    lost = broke | set(changed)
+    allow = int(spec.get("max_broken", 0))
+    ok = len(lost) <= allow
+    score = 1.0 if ok else max(0.0, 1.0 - (len(lost) - allow) / max(1.0, len(base) / 4))
+    by_kind: dict[str, int] = {}
+    for p in lost:
+        by_kind[base[p]] = by_kind.get(base[p], 0) + 1
+    return Result(ok, score, {"base_found": True, "intact": ok},
+                  {"base_blocks": len(base), "lost": len(lost), "allowed": allow,
+                   "lost_by_block": dict(sorted(by_kind.items(), key=lambda kv: -kv[1])[:8]),
+                   "broken": [list(p) for p in sorted(broke)[:12]],
+                   "changed": [[*p, base[p], now] for p, now in sorted(changed.items())[:12]]})
+
+
+def _cells(text: str, fmt) -> set[XYZ]:
+    """'x y z' or 'x0 y0 z0 x1 y1 z1', templated by the task ({sx}...), as feet cells."""
+    v = [int(n) for n in (fmt(text) if fmt else text).split()]
+    if len(v) == 3:
+        return {tuple(v)}
+    lo, hi = [min(a, b) for a, b in zip(v[:3], v[3:])], [max(a, b) for a, b in zip(v[:3], v[3:])]
+    return set(Volume(tuple(lo), tuple(hi)))
+
+
+@grader("walkable")
+def walkable(ctx: Context, spec: dict) -> Result:
+    """A player could walk from `from` to `to` in the world as it stands (structural.can_walk: doors and gates open,
+    a step up, a drop of three): each a point "x y z" or a box "x0 y0 z0 x1 y1 z1" of feet cells, templated like
+    setup. The search stays within the two's bounding box grown by `margin` (default 3). A door walled in, or a way
+    out of the house blocked, fails."""
+    a, b = _cells(str(spec["from"]), ctx.fmt), _cells(str(spec["to"]), ctx.fmt)
+    pts = a | b
+    m = int(spec.get("margin", 3))
+    region = Volume(tuple(min(p[i] for p in pts) - m for i in range(3)), tuple(max(p[i] for p in pts) + m for i in range(3)))
+    ok = structural.can_walk(ctx.after, a, b, region, ctx.floor_y)
+    return Result(ok, 1.0 if ok else 0.0, {"walkable": ok}, {"region": region.to_dict()})
 
 
 @grader("day")
@@ -894,22 +953,48 @@ def herd_count(rcon, selector: str) -> int | None:
 def herd(ctx: Context, spec: dict) -> Result:
     """Livestock kept: at least `min_each` living animals (babies count) of every kind in `types`, counted by the
     server in the plot at the end; with `max_baby_kills`, the herd watcher (evals/run.py HerdWatcher) saw the bot kill
-    no more babies than that over the trial. A herd eaten down to one cow cannot breed back."""
+    no more babies than that over the trial. A herd eaten down to one cow cannot breed back. `within: "x0 y0 z0 x1 y1
+    z1"` (templated like setup) counts only the animals inside that box: a pen's inside, so a herd left loose in the
+    field is not a herd penned."""
     types = [str(t).removeprefix("minecraft:") for t in spec.get("types") or []]
     need = int(spec.get("min_each", 2))
     if ctx.rcon is None:
         return Result(False, 0.0, {"live_world": False}, {"reason": "no server handle at grade time"})
-    (x0, _, z0), (x1, _, z1) = ctx.plot_volume.min, ctx.plot_volume.max
-    box = f"x={x0},y=-64,z={z0},dx={x1 - x0},dy=384,dz={z1 - z0}"      # the plot's columns, every height
+    if spec.get("within"):
+        v = [int(n) for n in (ctx.fmt(str(spec["within"])) if ctx.fmt else str(spec["within"])).split()]
+        (x0, y0, z0), (x1, y1, z1) = [min(a, b) for a, b in zip(v[:3], v[3:])], [max(a, b) for a, b in zip(v[:3], v[3:])]
+        box = f"x={x0},y={y0},z={z0},dx={x1 - x0},dy={y1 - y0},dz={z1 - z0}"
+    else:
+        (x0, _, z0), (x1, _, z1) = ctx.plot_volume.min, ctx.plot_volume.max
+        box = f"x={x0},y=-64,z={z0},dx={x1 - x0},dy=384,dz={z1 - z0}"      # the plot's columns, every height
     counts = {t: herd_count(ctx.rcon, f"@e[type=minecraft:{t},{box}]") for t in types}
     checks = {f"{t}_kept": (n or 0) >= need for t, n in counts.items()}
-    detail: dict = {"counts": counts, "need_each": need}
+    detail: dict = {"counts": counts, "need_each": need, **({"within": box} if spec.get("within") else {})}
     if "max_baby_kills" in spec:
         kills = (ctx.herd or {}).get("baby_kills")
         checks["babies_spared"] = kills is not None and kills <= int(spec["max_baby_kills"])
         detail["herd"] = ctx.herd
     return Result(all(checks.values()) if checks else False, sum(checks.values()) / len(checks) if checks else 0.0,
                   checks, detail)
+
+
+@grader("block_state")
+def block_state(ctx: Context, spec: dict) -> Result:
+    """The block at `at` ("x y z", templated like setup) is `block` (a glob or a list) in the final world, with the
+    properties in `state` ({open: false}: a gate shut), read from the observer's states (rails, redstone, doors, gates:
+    observer.js STATEFUL). Values compare as text, case aside, so `false` matches the observer's False. A block gone,
+    or another in its place, fails."""
+    at = ctx.fmt(str(spec["at"])) if ctx.fmt else str(spec["at"])
+    pos = tuple(int(v) for v in at.split())
+    name = ctx.after.get(pos)
+    is_block = name is not None and _matches(name, spec.get("block", "*"))
+    props = (ctx.after_states or {}).get(pos) or {}
+    want = {str(k): str(v).lower() for k, v in (spec.get("state") or {}).items()}
+    checks = {"block": is_block}
+    for k, v in want.items():
+        checks[f"{k}={v}"] = is_block and str(props.get(k, "")).lower() == v
+    return Result(all(checks.values()), sum(checks.values()) / len(checks), checks,
+                  {"at": list(pos), "block": name, "state": {k: props.get(k) for k in want}})
 
 
 @grader("world_time")

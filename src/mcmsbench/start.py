@@ -201,6 +201,60 @@ def cavern_commands(start: XYZ, width: int) -> list[str]:
     return cmds
 
 
+TUNNEL_SEAL = ("water", "lava", "gravel")    # what a carved tunnel's one-block shell turns to stone
+
+
+def tunnel_commands(path: list, start: XYZ, width: int = 3, height: int = 3) -> tuple[list[str], tuple[int, int, int, int]]:
+    """A walkable tunnel cut through the ground along `path`, waypoints [dx, dy, dz] from `start` (feet cells), each
+    leg straight along x or z: `width` across, `height` of air over a floor one block under the waypoint's feet. A
+    leg that changes y climbs or drops it one block a step from its first cell (a staircase), so a leg must be at
+    least |dy| long. Before each leg's air, its box grown by one block has its water, lava and gravel turned to stone
+    (TUNNEL_SEAL): an aquifer or a lava pocket the route cuts cannot flood it and a gravel roof cannot fall in, while a
+    natural cave it crosses stays open, a side passage. Where such a cave leaves no floor under the route, one is
+    laid, so the route is walkable end to end. Returns the commands and the (x0, z0, x1, z1) the route covers, for
+    force-loading it first."""
+    x, y, z = start
+    pts = [tuple(int(v) for v in p) for p in path]
+    if len(pts) < 2:
+        raise ValueError(f"a tunnel needs two waypoints or more: {path!r}")
+    lo, hi = -((width - 1) // 2), width // 2              # the cross-section round the path line
+    cmds: list[str] = []
+    xs: list[int] = []
+    zs: list[int] = []
+    for (ax, ay, az), (bx, by, bz) in zip(pts, pts[1:]):
+        if ax != bx and az != bz:
+            raise ValueError(f"tunnel leg {[ax, ay, az]} -> {[bx, by, bz]} is not along x or z")
+        n = max(abs(bx - ax), abs(bz - az))
+        dy = by - ay
+        if abs(dy) > n:
+            raise ValueError(f"tunnel leg {[ax, ay, az]} -> {[bx, by, bz]}: {abs(dy)} up or down in {n} blocks")
+        ux, uz = (bx > ax) - (bx < ax), (bz > az) - (bz < az)
+        side = (0, 1) if ux else (1, 0)                     # the cross-section runs across the leg
+
+        def cells(i0: int, i1: int, floor: int) -> list[str]:
+            """Cells i0..i1 of this leg, feet from `floor` (relative to start): a floor under them where a natural
+            cave left none (the route stays walkable end to end), then their air."""
+            c0 = (x + ax + ux * i0 + side[0] * lo, z + az + uz * i0 + side[1] * lo)
+            c1 = (x + ax + ux * i1 + side[0] * hi, z + az + uz * i1 + side[1] * hi)
+            return [f"fill {c0[0]} {y + floor - 1} {c0[1]} {c1[0]} {y + floor - 1} {c1[1]} minecraft:stone "
+                    f"replace #minecraft:air",
+                    f"fill {c0[0]} {y + floor} {c0[1]} {c1[0]} {y + floor + height - 1} {c1[1]} minecraft:air"]
+
+        bx0, bx1 = sorted((ax + side[0] * lo, bx + side[0] * hi))
+        bz0, bz1 = sorted((az + side[1] * lo, bz + side[1] * hi))
+        by0, by1 = min(ay, by) - 1, max(ay, by) + height
+        for block in TUNNEL_SEAL:
+            cmds.append(f"fill {x + bx0 - 1} {y + by0} {z + bz0 - 1} {x + bx1 + 1} {y + by1} {z + bz1 + 1} "
+                        f"minecraft:stone replace minecraft:{block}")
+        step = (dy > 0) - (dy < 0)
+        for i in range(abs(dy)):                            # the stairs: one cell a step
+            cmds += cells(i, i, ay + step * i)
+        cmds += cells(abs(dy), n, by)                  # the level rest of the leg
+        xs += [x + bx0 - 1, x + bx1 + 1]
+        zs += [z + bz0 - 1, z + bz1 + 1]
+    return cmds, (min(xs), min(zs), max(xs), max(zs))
+
+
 def time_ticks(t: str | int) -> str:
     """Argument for /time set."""
     return str(t)  # vanilla accepts day/noon/night/midnight or a tick count

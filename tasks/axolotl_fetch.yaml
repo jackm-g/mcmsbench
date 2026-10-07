@@ -1,0 +1,135 @@
+# A long underground round trip with a job at the far end: fetch an axolotl from a lush cave about 200 blocks east and
+# put it, still in its bucket, in the chest by the start. It measures a trip carried both ways through the dark: making
+# the tool first (iron from the tunnel walls, smelted in the furnace by the chest, a bucket at the table), keeping a
+# bearing through a winding route with dead ends, getting past what lives on it, the catch itself (water in the
+# bucket, then the axolotl), and the way back, with no map but what the bot kept (torches are breadcrumbs as well as
+# light).
+#
+# The start is a torch-lit cavern 45 below the ground (situation `cavern`) with a crafting table, an empty furnace and
+# the chest. There is no wood underground, so the table and furnace are given; the coal and iron are not, they stand
+# in the first tunnel's walls (and more iron half way). `tunnels` cuts the route from the start: ten legs, about 260
+# blocks of walking to the chamber, with stairs up and down, and four dead ends: one straight on past the first turn,
+# one 40 north and one 24 east (the right direction, and still a dead end) at the first junction, one south off the
+# far leg. Water, lava and gravel round the route turn to stone, so an aquifer cannot flood it; a natural cave it
+# crosses stays open, a side passage. `random_radius` moves the whole complex each trial, so the caves and ore it
+# crosses differ while its own layout stays one that can be reviewed.
+#
+# The iron pickaxe is the real constraint: 250 uses, and no sticks to make another. Digging straight east and back is
+# about 800 blocks of stone, so the pickaxe runs out; the route is walkable end to end, so following it costs only the
+# ore. xray is off: a block search sees only open faces, so the chamber (beyond view distance at the start) has to be
+# found by going, not looked up. The prompt gives the pool's coordinates (a player who has been there would): the
+# winding route and the natural caves it crosses are the test, not finding the chamber blind (trials without them
+# went off down side caves and aquifers, and died to what lived there).
+#
+# On the way: a zombie at the first junction's south leg (about 75 blocks along) and two skeletons with bows round the
+# bend after the half-way stairs (about 160 along), summoned persistent and without gear or reinforcements. Natural
+# spawning is on (Normal), so the dark tunnels add their own. The bot has an iron sword, a shield in the off-hand and
+# an iron chestplate on. Kills are counted, not graded: sneaking past or walling off is a way through too.
+#
+# The chamber: 15x12 of moss under cave vines with berries (lit), a clay-lined pool 2 deep, the biome lush_caves, and
+# four axolotls, persistent and tagged `fetch`. killed:axolotl is counted.
+#
+# Graded from the server and the position track only: the plot (spawn +-48, y sy-12..sy+28) does not reach 45 down,
+# so snapshots, frames and renders do not see the cave. `stored` reads the chest over RCON (the `container` grader,
+# read live too: the trial stops once the axolotl is in it);
+# `reached` is the track passing the chamber; iron, ingots and bucket are the server's counters. Only `caught` rests on
+# the agent's frames. A death respawns on the surface, far from a sealed cave: `alive` is required.
+prompt: >-
+  There's a lush cave with axolotls about 200 blocks east of here, a little deeper than we are: its pool is around
+  x {bx+200}, y {by-7}, z {bz+12}. Catch me one in a bucket, bring it back, and put it in the chest next to the
+  crafting table here. There's coal and iron along the
+  tunnels, and the furnace is yours to use. It's dark down there, so mind the mobs, and don't hurt the axolotls.
+inventory: {iron_pickaxe: 1, iron_sword: 1, cooked_porkchop: 10, torch: 32}
+world: {type: survival, seeds: [1], border: 600, difficulty: normal}
+start: {situation: cavern, width: 14, depth: 45, random_radius: 24, time: day}
+xray: false
+movements: {can_dig: true, towers: true, scaffolding: [cobblestone]}
+tunnels:
+  # the route, [dx, dy, dz] from the start's feet, 3 wide and 3 high
+  - path:
+      - [0, 0, 0]         # the cavern's middle, out through its east wall (coal, then iron, in the walls)
+      - [22, 0, 0]
+      - [22, -2, -12]     # north, two down
+      - [50, -2, -12]     # east to the first junction (dead ends north and east)
+      - [50, -2, 10]      # south past the zombie
+      - [96, 0, 10]       # the long east leg, two up (more iron)
+      - [96, 0, -8]       # north to the bend
+      - [140, -3, -8]     # east, three down, past the skeletons (a dead end south off it)
+      - [140, -3, 12]     # south
+      - [192, -6, 12]     # east, three down, into the chamber
+  # the dead ends
+  - {path: [[22, 0, 0], [34, 0, 0]]}           # straight on past the first turn
+  - {path: [[50, -2, -12], [50, -2, -52]]}     # 40 north from the junction
+  - {path: [[50, -2, -12], [74, -2, -12]]}     # 24 east from it: the right way, and nowhere
+  - {path: [[120, -3, -8], [120, -3, 12]]}     # south off the far leg, beside the real one
+setup:
+  # armed: a shield in the off-hand and an iron chestplate on (the sword is in the inventory)
+  - "item replace entity {bot} weapon.offhand with minecraft:shield"
+  - "item replace entity {bot} armor.chest with minecraft:iron_chestplate"
+  # the cavern's north side: the crafting table, the chest (where the axolotl goes) and an empty furnace
+  - "setblock {bx-1} {by} {bz-3} minecraft:crafting_table"
+  - "setblock {bx} {by} {bz-3} minecraft:chest[facing=south]"
+  - "setblock {bx+1} {by} {bz-3} minecraft:furnace[facing=south]"
+  # the first tunnel's walls (z-2 and z+2): three coal, then four iron
+  - "setblock {bx+9} {by+1} {bz-2} minecraft:coal_ore"
+  - "setblock {bx+10} {by} {bz+2} minecraft:coal_ore"
+  - "setblock {bx+11} {by+1} {bz+2} minecraft:coal_ore"
+  - "setblock {bx+14} {by} {bz-2} minecraft:iron_ore"
+  - "setblock {bx+15} {by+1} {bz-2} minecraft:iron_ore"
+  - "setblock {bx+18} {by+1} {bz+2} minecraft:iron_ore"
+  - "setblock {bx+19} {by} {bz+2} minecraft:iron_ore"
+  # three more half way, in the long east leg's walls (z+8 and z+12)
+  - "setblock {bx+70} {by+1} {bz+8} minecraft:iron_ore"
+  - "setblock {bx+71} {by} {bz+8} minecraft:iron_ore"
+  - "setblock {bx+78} {by+1} {bz+12} minecraft:iron_ore"
+  # the chamber: a stone shell round 15x7x12 of air, the tunnel's mouth cut back through its west wall
+  - "fill {bx+192} {by-7} {bz+5} {bx+208} {by+1} {bz+18} minecraft:stone hollow"
+  - "fill {bx+191} {by-6} {bz+11} {bx+192} {by-4} {bz+13} minecraft:air"
+  - "fill {bx+193} {by-7} {bz+6} {bx+207} {by-7} {bz+17} minecraft:moss_block"
+  # the pool: clay-lined, 7x6 of water 2 deep, its surface level with the floor
+  - "fill {bx+197} {by-9} {bz+8} {bx+205} {by-7} {bz+15} minecraft:clay"
+  - "fill {bx+198} {by-8} {bz+9} {bx+204} {by-7} {bz+14} minecraft:water"
+  # cave vines with berries from the roof (the light), azaleas and moss carpet on the floor
+  - "setblock {bx+194} {by} {bz+7} minecraft:cave_vines[berries=true]"
+  - "setblock {bx+200} {by} {bz+7} minecraft:cave_vines[berries=true]"
+  - "setblock {bx+206} {by} {bz+8} minecraft:cave_vines[berries=true]"
+  - "setblock {bx+194} {by} {bz+16} minecraft:cave_vines[berries=true]"
+  - "setblock {bx+201} {by} {bz+16} minecraft:cave_vines[berries=true]"
+  - "setblock {bx+206} {by} {bz+15} minecraft:cave_vines[berries=true]"
+  - "setblock {bx+194} {by-6} {bz+9} minecraft:azalea"
+  - "setblock {bx+206} {by-6} {bz+17} minecraft:flowering_azalea"
+  - "fill {bx+193} {by-6} {bz+15} {bx+195} {by-6} {bz+17} minecraft:moss_carpet"
+  - "fillbiome {bx+192} {by-10} {bz+5} {bx+208} {by+1} {bz+18} minecraft:lush_caves"
+  # nothing in the chamber but what is summoned (a bat, a mob from a cave the shell cut through)
+  - "kill @e[type=!minecraft:player,x={bx+192},y={by-10},z={bz+5},dx=16,dy=11,dz=13]"
+  - "summon minecraft:axolotl {bx+199} {by-8} {bz+10} {{PersistenceRequired:1b,Tags:[\"fetch\"]}}"
+  - "summon minecraft:axolotl {bx+201} {by-8} {bz+13} {{PersistenceRequired:1b,Tags:[\"fetch\"]}}"
+  - "summon minecraft:axolotl {bx+203} {by-8} {bz+10} {{PersistenceRequired:1b,Tags:[\"fetch\"]}}"
+  - "summon minecraft:axolotl {bx+200} {by-8} {bz+12} {{PersistenceRequired:1b,Tags:[\"fetch\"]}}"
+  # on the way: a zombie on the junction's south leg, two skeletons with bows round the bend after the stairs down
+  - "summon minecraft:zombie {bx+50} {by-2} {bz} {{PersistenceRequired:1b,IsBaby:0b,Tags:[\"fetch_guard\"]}}"
+  - "summon minecraft:skeleton {bx+105} {by-3} {bz-7} {{PersistenceRequired:1b,Tags:[\"fetch_guard\"],equipment:{{mainhand:{{id:\"minecraft:bow\",count:1}}}}}}"
+  - "summon minecraft:skeleton {bx+107} {by-3} {bz-9} {{PersistenceRequired:1b,Tags:[\"fetch_guard\"],equipment:{{mainhand:{{id:\"minecraft:bow\",count:1}}}}}}"
+stats: [deaths, damage_taken, damage_dealt, walked, "mined:stone", "mined:deepslate", "mined:iron_ore",
+        "mined:coal_ore", "crafted:iron_ingot", "crafted:bucket", "used:torch", "killed:axolotl", "killed:zombie",
+        "killed:skeleton"]
+grader:
+  kind: milestones
+  required: [stored, alive]
+  steps:
+    - {name: iron,    weight: 1, check: {kind: stat, name: "mined:iron_ore", min: 3}}
+    - {name: ingots,  weight: 1, check: {kind: stat, name: "crafted:iron_ingot", min: 3}}
+    - {name: bucket,  weight: 2, check: {kind: stat, name: "crafted:bucket", min: 1}}
+    - {name: reached, weight: 2, check: {kind: position, target_start: [200, -6, 12], tolerance: 9, y_tolerance: 5}}
+    - {name: caught,  weight: 2, check: {kind: inventory, item: axolotl_bucket, count: 1}}
+    - name: stored
+      weight: 4
+      says: "an axolotl in a bucket in the chest next to the crafting table at the start"
+      check: {kind: container, at: "{bx} {by} {bz-3}", item: axolotl_bucket, count: 1}
+    - {name: alive,   weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and LLM trials
+fail_on_death: true   # a death respawns the player on the surface, far from a sealed cave: the trial ends there, failed
+max_turns: 30
+max_seconds: 2400
+exec_timeout: 300
+tags: [tier-c, survival, navigation, cave, long_travel, crafting, combat]

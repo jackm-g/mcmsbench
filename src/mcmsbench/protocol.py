@@ -46,6 +46,7 @@ from .config import AGENTS_DIR, agent_path
 PROTOCOL_VERSION = 1
 GRACE_SECONDS = 90          # past the task clock before the process is stopped: the agent stops at the clock itself
 STEP_EVENTS = ("subgoal_completed", "subgoal_failed")
+LOST_CHECK_EVERY = 3.0      # seconds between reads of what ends a trial as failed (fail_on_death: the death counter)
 GOAL_CHECK_EVERY = 10.0     # seconds between live grades; stretched when one takes long (a big plot to scan)
 CONFIRM_SETTLE = 1.5        # a pass is graded again after the agent has been held still this long
 FRAME_EVERY = 30.0          # seconds between the runner's own frames, whatever the agent reports
@@ -180,6 +181,8 @@ class TrialContext:
     on_event: Callable[[dict], None] | None = None    # every protocol event but the trace, as the agent sent it
     dawns: Callable[[], int] | None = None            # the dawns seen so far (the runner's day clock); None: no clock
     end_at_dawn: int | None = None                    # stop the agent at this dawn (the task's end), frame taken first
+    lost: Callable[[], str | None] | None = None      # why the trial can no longer pass (a death), or None: polled like
+                                                      # goal_met, and the agent is stopped once it says why
     log: object | None = None                         # the trial's EventLog
     stop: threading.Event | None = None
 
@@ -281,6 +284,7 @@ class Agent:
 
             threading.Thread(target=reader, daemon=True).start()
             next_check = time.monotonic() + GOAL_CHECK_EVERY
+            next_lost = time.monotonic() + LOST_CHECK_EVERY
             next_frame = time.monotonic() + FRAME_EVERY
             next_dawn = time.monotonic() + DAWN_POLL_EVERY
             dawns_seen = 0
@@ -322,6 +326,16 @@ class Agent:
                         if met and self._confirm(proc, ctx, tag, t0):
                             stopped_by = "grader"
                             ctx.progress(f"{tag} the grader passes at {time.time() - t0:.0f} s: stopping the agent")
+                            terminate(proc, held=True)
+                    if running and stopped_by is None and ctx.lost is not None and time.monotonic() >= next_lost:
+                        next_lost = time.monotonic() + LOST_CHECK_EVERY
+                        why = self._lost(ctx, tag)
+                        if why:
+                            with_suppress(lambda: signal_group(proc, signal.SIGSTOP))
+                            stopped_by = "lost"
+                            ctx.progress(f"{tag} {why} at {time.time() - t0:.0f} s: the task can no longer pass, stopping the agent")
+                            if ctx.after_step:
+                                self._frame(ctx, "lost", tag)
                             terminate(proc, held=True)
                     if not line:
                         continue
@@ -399,9 +413,10 @@ class Agent:
         trace["exit_code"] = code
         trace["guard_refusals"] = refusals
         if stopped_by:
-            # the run ended on the bench's word, not the agent's: the grader passed, or the task's last dawn came
+            # the run ended on the bench's word, not the agent's: the grader passed, the task's last dawn came, or the
+            # task could no longer pass (fail_on_death: the player died)
             trace["stopped_by"] = stopped_by
-            trace["stop"] = {"grader": "grader_passed", "dawn": "dawn_reached"}[stopped_by]
+            trace["stop"] = {"grader": "grader_passed", "dawn": "dawn_reached", "lost": "task_lost"}[stopped_by]
         trace["stdout"] = tail
         trace["agent_log"] = str(log)
         trace.setdefault("seconds", round(time.time() - t0, 1))
@@ -425,6 +440,14 @@ class Agent:
         except Exception as e:  # noqa: BLE001 — a missed read is caught up by the next one
             ctx.progress(f"{tag} day clock read failed: {type(e).__name__}: {e}")
             return seen
+
+    @staticmethod
+    def _lost(ctx: TrialContext, tag: str) -> str | None:
+        try:
+            return ctx.lost()
+        except Exception as e:  # noqa: BLE001 — a failed read is not a lost trial
+            ctx.progress(f"{tag} lost check failed: {type(e).__name__}: {e}")
+            return None
 
     @staticmethod
     def _grade(ctx: TrialContext, tag: str) -> bool:
