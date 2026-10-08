@@ -62,6 +62,8 @@ class Context:
     containers: dict | None = None                      # final {pos: [items]}: the chests and barrels the bot placed
     day: int | None = None                              # the day the trial ended in (1 = the one it started in, each dawn
                                                         # the bench saw starts the next); None: no day clock ran
+    events: list = field(default_factory=list)          # [{at, t, run, out}]: the task's events that fired, t seconds
+                                                        # since the start (the bench's record: no player need be online)
 
     def at_frame(self, f: Frame) -> "Context":
         """A context describing the world as of one frame."""
@@ -69,7 +71,8 @@ class Context:
         return Context(self.before, f.snapshot, _diff(self.before, f.snapshot), self.plot_volume, self.floor_y,
                        f.position, f.inventory, [], f.stats, self.health, self.world_time, self.center,
                        self.after_states, self.rcon, self.fmt, self.track, self.seconds, self.refusals, self.respawn,
-                       self.setup, self.start, self.broke, f.food, self.herd, f.equipment, f.containers, self.day)
+                       self.setup, self.start, self.broke, f.food, self.herd, f.equipment, f.containers, self.day,
+                       [e for e in self.events if f.t is None or e.get("t", 0) <= f.t])
 
     def at_position(self, pos: XYZ) -> "Context":
         """The final world with the bot at a sampled position (for position checks against the track)."""
@@ -759,6 +762,18 @@ def stat(ctx: Context, spec: dict) -> Result:
         ok = _OPS[spec.get("op", ">=")](have, spec["value"])
         score = 1.0 if ok else 0.0
     return Result(ok, score, {name: ok}, {"name": name, "value": have})
+
+
+@grader("event")
+def event(ctx: Context, spec: dict) -> Result:
+    """One of the task's `events` fired: {run: "tag {bot} add set_out"} (templated like the task's events), matched
+    against the bench's record of what fired. Events wait in turn, so a later one firing says the ones before it did.
+    Read from the record, not the server: the player is offline by the time the trial is graded, and a tag the event
+    put on it cannot be asked about then."""
+    run = ctx.fmt(spec["run"]) if ctx.fmt else spec["run"]
+    hit = next((e for e in ctx.events if e.get("run") == run), None)
+    return Result(hit is not None, 1.0 if hit else 0.0, {"fired": hit is not None},
+                  {"run": run, "t": hit.get("t") if hit else None})
 
 
 @grader("survived")

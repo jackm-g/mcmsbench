@@ -14,7 +14,9 @@
 # The boat is the way across, not just a way: swimming is possible, so `sailed` is required, and four drowned
 # (persistent, summoned without tridents) hold the water between the shore and the island, which a swimmer meets and
 # a boat outruns. `sailed` is a gated event: once the player is seen riding a boat (`on vehicle`, a #boat) inside the
-# middle of the sea (sx+40..sx+120), it is tagged, and a functional assert reads the tag. The server's boat counter
+# middle of the sea (sx+40..sx+120), a score is set on a fake holder (#sailed), and a functional assert reads it. Not a
+# tag on the player: the grader runs after the stand-in has logged out, and no selector finds an offline player (a
+# trial that sailed 128 blocks was graded as not having sailed). The server's boat counter
 # (`boated`) is kept as a diagnostic only: like walked, it may not credit a mineflayer client's movement.
 #
 # The island is outside the plot (spawn +-48): `load_area` keeps the sea's chunks loaded for the setup, the chest is
@@ -59,10 +61,13 @@ setup:
   - "summon minecraft:drowned {sx+70} {sy-6} {sz-8} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
   - "summon minecraft:drowned {sx+95} {sy-6} {sz+4} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
   - "summon minecraft:drowned {sx+120} {sy-6} {sz-5} {{PersistenceRequired:1b,Tags:[\"deep\"]}}"
+  # what `sailed` reads, cleared: the objective is there already from an earlier trial on this server
+  - "scoreboard objectives add bench_sailed dummy"
+  - "scoreboard players reset #sailed bench_sailed"
 events:
   - at: 0      # sailed: the player riding a boat over the middle of the sea
     when: "execute as {bot} on vehicle if entity @s[type=#minecraft:boat,x={sx+40},y={sy-12},z={sz-80},dx=80,dy=20,dz=160]"
-    run: "tag {bot} add sailed"
+    run: "scoreboard players set #sailed bench_sailed 1"
 stats: [deaths, damage_taken, boated, swum, "crafted:oak_boat", "killed:drowned"]
 grader:
   kind: milestones
@@ -72,7 +77,7 @@ grader:
     - name: sailed
       weight: 2
       says: "you rode a boat out over the middle of the sea (not swam it)"
-      check: {kind: functional, steps: [{assert: "execute if entity @a[name={bot},tag=sailed]"}]}
+      check: {kind: functional, steps: [{assert: "execute if score #sailed bench_sailed matches 1"}]}
     - {name: landed, weight: 1, check: {kind: position, target_rel: [150, 0], tolerance: 8, y_tolerance: 12}}
     - name: delivered
       weight: 4

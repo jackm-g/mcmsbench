@@ -66,6 +66,7 @@ def from_grader(grader: dict | None, plot=None) -> dict | None:
 UNCOVERED = {
     "stat": "a server counter ({name})",
     "functional": "a test the grader runs on the finished world with server commands",
+    "event": "a moment the bench watched for during the trial",
     "entity_inside": "where the {entity} stands, from the server",
     "dug": "blocks dug ({block}), from the whole trial's world diff",
     "guard": "the live guard's refusals over the trial",

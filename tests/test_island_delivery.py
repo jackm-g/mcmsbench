@@ -128,9 +128,11 @@ def test_four_drowned_in_the_water_between_the_shore_and_the_island():
     assert all('Tags:["deep"]' in c and "PersistenceRequired:1b" in c for c in _setup() if c.startswith("summon "))
 
 
-def test_the_event_tags_a_boat_ride_over_the_middle_of_the_sea():
+def test_the_event_scores_a_boat_ride_over_the_middle_of_the_sea():
     [(at, run, when)] = TASK.render_events(PLOT, START, "player")
-    assert at == 0 and run == "tag player add sailed"
+    # a score on a fake holder, not a tag on the player: graded after the stand-in logs out, no selector finds it
+    assert at == 0 and run == "scoreboard players set #sailed bench_sailed 1"
+    assert "scoreboard players reset #sailed bench_sailed" in _setup()
     assert when.startswith("execute as player on vehicle if entity @s[type=#minecraft:boat,")
     m = re.search(r"x=(-?\d+),y=(-?\d+),z=(-?\d+),dx=(\d+),dy=(\d+),dz=(\d+)", when)
     x, y, z, dx, dy, dz = (int(v) for v in m.groups())
@@ -146,7 +148,7 @@ def _snbt(held: dict) -> str:
 
 
 class Server:
-    """The lighthouse chest (its contents, or gone) and whether the player carries the `sailed` tag."""
+    """The lighthouse chest (its contents, or gone) and whether the `sailed` score is set."""
 
     def __init__(self, held: dict | None, sailed=True):
         self.held, self.sailed, self.sent = held, sailed, []
@@ -155,7 +157,7 @@ class Server:
         self.sent.append(cmd)
         if cmd.startswith("forceload query"):
             return "Chunk at [0, 0] in minecraft:overworld is not marked for force loading"
-        if cmd == "execute if entity @a[name=player,tag=sailed]":
+        if cmd == "execute if score #sailed bench_sailed matches 1":
             return "Test passed. Count: 1" if self.sailed else "Test failed"
         if cmd == f"data get block {CHEST[0]} {CHEST[1]} {CHEST[2]} Items":
             return "The target block is not a block entity" if self.held is None else _snbt(self.held)
@@ -225,3 +227,12 @@ def test_the_goal_file_says_what_cannot_be_read_live():
     assert {p["name"]: p["check"]["kind"] for p in check["parts"]} == {"alive": "alive"}
     says = {u["name"]: u["says"] for u in check["uncovered"]}
     assert "rode a boat" in says["sailed"] and "32 torches" in says["delivered"]
+
+
+def test_the_goal_file_says_where_the_cargo_goes_and_what():
+    goal = build_goal(TASK, PLOT, START, load_settings(), 0, seed=1, fast_nights=False, grader_stops=False,
+                      max_seconds=1500, max_cost=5)
+    delivered = next(u for u in goal["check"]["uncovered"] if u["name"] == "delivered")
+    assert delivered["check"] == {"kind": "container", "at": list(CHEST), "items": CARGO}
+    sailed = next(u for u in goal["check"]["uncovered"] if u["name"] == "sailed")
+    assert "check" not in sailed                         # a functional test stays words alone

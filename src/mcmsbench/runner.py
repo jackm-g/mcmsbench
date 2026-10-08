@@ -582,6 +582,8 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
                fast_nights: bool, grader_stops: bool, max_seconds: float, max_cost: float) -> dict:
     """The goal file for one trial (PROTOCOL.md, "Goal file")."""
     check = None if task.check is False else (task.check or from_grader(task.grader, plot=plot))
+    if isinstance(check, dict):
+        container_checks(check, task, plot, start)
     lo, hi = plot.volume.min, plot.volume.max
     return {
         "protocol": PROTOCOL_VERSION,
@@ -605,6 +607,21 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
         "options": agent_options(task, plot, start),
         "tags": list(task.tags),
     }
+
+
+def container_checks(check: dict, task: Task, plot: Plot, start) -> None:
+    """An uncovered `container` part carries what it asks in `check`: the chest's `at` resolved for this trial ([x, y, z])
+    and the `items` it must hold, so an agent that keeps a record of what it put where can score it, as a `stat` part
+    carries its bound. ("the lighthouse chest holds all the cargo" alone did not say where, or what.)"""
+    steps = {str(m.get("name")): dict(m.get("check") or {}) for m in (task.grader or {}).get("steps") or []}
+    for u in check.get("uncovered") or []:
+        spec = steps.get(str(u.get("name")))
+        if u.get("kind") != "container" or not spec or "at" not in spec:
+            continue
+        with contextlib.suppress(KeyError, ValueError, IndexError):
+            at = [int(v) for v in task._fmt(str(spec["at"]), plot, start).split()]
+            items = dict(spec["items"]) if isinstance(spec.get("items"), dict) else {str(spec.get("item")): int(spec.get("count", 1))}
+            u["check"] = {"kind": "container", "at": at, "items": {str(k): int(v) for k, v in items.items()}}
 
 
 def agent_options(task: Task, plot: Plot, start) -> dict:
@@ -774,7 +791,7 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                            setup=setup_placed, start=tuple(rec.start), broke=list(broke),
                            food=arena.server_food(a.bot_username), herd=dict(herd.tally) if herd else None,
                            equipment=arena.server_equipment(a.bot_username) if wears else None,
-                           day=day_clock.day if day_clock else None)
+                           day=day_clock.day if day_clock else None, events=list(events.fired) if events else [])
 
         def goal_met() -> bool:
             # the grader itself on the world as it stands, read as the final capture reads it; never for a grader
@@ -873,7 +890,7 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                        track=rec.trace["track"], seconds=rec.seconds, refusals=rec.trace["guard_refusals"],
                        respawn=rec.final_respawn, setup=setup_placed, start=tuple(rec.start), broke=list(broke),
                        food=rec.final_food, herd=rec.trace.get("herd"), equipment=rec.final_equipment,
-                       containers=containers, day=day_clock.day if day_clock else None)
+                       containers=containers, day=day_clock.day if day_clock else None, events=rec.trace["events"])
         rec.result = grade(task.grader, gctx).to_dict()
         agent_check = rec.trace.get("check")
         if isinstance(agent_check, dict) and agent_check.get("parts"):

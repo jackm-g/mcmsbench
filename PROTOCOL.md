@@ -120,7 +120,8 @@ optional reading: the bench grades from the server whatever the agent believes. 
 
 An `uncovered` part is one an agent cannot read live, such as a server counter or a test the grader runs on the finished
 world. `says` describes it. A `stat` part carries its bound in `check`, for an agent that keeps its own count of its
-kills.
+kills. A `container` part carries `check: {kind: "container", at: [x, y, z], items: {name: count}}`: the chest the
+grader reads at the end and what it must hold then, for an agent that keeps a record of what it put where.
 
 ### 4.2 `options`
 

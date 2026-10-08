@@ -1,0 +1,109 @@
+# An expedition from a base, the whole shape of one: make the house the base (the bot's own bed placed in it and the
+# spawn set there), pack from the gear chest, go about 220 blocks east to a ruined portal, mine obsidian, find the way
+# back (most likely after dusk), and store the obsidian in the house. It measures preparation and coming home, not
+# only the errand: the pickaxe has to be the right one, and the base has to be one before the trip, so that a death on
+# the road brings the bot back to it.
+#
+# The base is a spruce house at seed 1's spawn (the housesitter's: 7x7 outside, 5x5 inside, a door in the south wall,
+# glass, torches), in a 17x17 yard. Inside: the gear chest by the door, an empty storage chest in the north-west
+# corner, a crafting table in the north-east, and room for a bed along the north wall. The bot carries only its bed.
+# The gear chest holds a diamond, an iron and a stone pickaxe, an iron sword, 8 cooked beef, 16 torches, a bucket,
+# shears and a fishing rod. Only the diamond pickaxe mines obsidian: an iron one breaks it in about 4 minutes and
+# drops nothing. Packing is a judgement, and the server's counters (used:<pickaxe>) say which one did the work.
+#
+# The portal is a 4x5 frame of 14 obsidian (8 are asked for) with some crying obsidian and netherrack at its foot,
+# stood on the ground 220 blocks due east: seed 1 is grass the whole way east to 240 (two_nights_hard's probe,
+# 2026-10-06; ocean lies 70-90 north and south). It is placed on the terrain's own height (`positioned over`), from one
+# marker so its rows line up, and `load_area` keeps its chunks loaded for the setup, as it does the new world spawn's.
+#
+# Deaths are allowed, and cost what they cost a player. keep_inventory is off, and the world spawn is moved 100 blocks
+# west of the house: a death without the bed set lands there, with everything left where the bot fell (gone in five
+# minutes); with the bed set it lands at home. So a death cannot carry the obsidian home, and the bed is worth setting.
+# A death is scored (`alive`), not a failure.
+#
+# Order is graded by two events that wait in turn: the first tags the bot once its respawn point is set (`based`), the
+# second, which cannot fire before it, tags it on reaching the portal (`set_out`). `set_out` is a trip begun from a
+# base, graded from the bench's record of the events that fired (the tag cannot be read once the player logs out). Dusk falls about 6.5 minutes in (start 4000), near the trip home; fast nights hold.
+#
+# Graded: the respawn point on a bed inside the house at the end, and 8 obsidian in the storage chest (required);
+# set out from a base, the diamond pickaxe used, the portal reached (the position track), the house left whole, and
+# no death (scored). The portal is outside the plot, so it is graded only through the track and the counters.
+prompt: >-
+  This house is your base for a trip. First put your bed in it and set your spawn there. Then take what you need from
+  the gear chest by the door. There's a ruined portal about 220 blocks east of here: bring back at least 8 obsidian
+  and put it in the storage chest in the corner of the house. It'll likely be dark by the time you're on your way
+  back.
+inventory: {white_bed: 1}
+world: {type: survival, seeds: [1], border: 600, difficulty: normal, daylight: true, keep_inventory: false}
+start: {time: 4000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+load_area: "{sx-110} {sz-20} {sx+235} {sz+20}"
+setup:
+  # the yard: 17x17 of grass round the spawn, clear 8 up, dirt below
+  - "fill {sx-8} {sy} {sz-8} {sx+8} {sy+8} {sz+8} minecraft:air"
+  - "fill {sx-8} {sy-5} {sz-8} {sx+8} {sy-2} {sz+8} minecraft:dirt"
+  - "fill {sx-8} {sy-1} {sz-8} {sx+8} {sy-1} {sz+8} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,x={sx},y={sy},z={sz},distance=..24]"
+  # the house: 7x7 outside, a plank floor, walls three high, a flat roof; 5x5 inside
+  - "fill {sx-3} {sy-1} {sz-3} {sx+3} {sy+3} {sz+3} minecraft:spruce_planks hollow"
+  - "setblock {sx} {sy} {sz+3} minecraft:spruce_door[facing=south,half=lower]"
+  - "setblock {sx} {sy+1} {sz+3} minecraft:spruce_door[facing=south,half=upper]"
+  - "setblock {sx-3} {sy+1} {sz} minecraft:glass"
+  - "setblock {sx+3} {sy+1} {sz} minecraft:glass"
+  - "setblock {sx} {sy+1} {sz-3} minecraft:glass"
+  - "setblock {sx-2} {sy+1} {sz+2} minecraft:wall_torch[facing=north]"
+  - "setblock {sx+2} {sy+1} {sz-2} minecraft:wall_torch[facing=south]"
+  - "setblock {sx-1} {sy+1} {sz+4} minecraft:wall_torch[facing=south]"
+  # inside: the gear chest by the door, the empty storage chest in the north-west corner, a crafting table north-east;
+  # the north wall's middle is left for the bed
+  - "setblock {sx+2} {sy} {sz+2} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:diamond_pickaxe\",count:1}},{{Slot:1b,id:\"minecraft:iron_pickaxe\",count:1}},{{Slot:2b,id:\"minecraft:stone_pickaxe\",count:1}},{{Slot:3b,id:\"minecraft:iron_sword\",count:1}},{{Slot:4b,id:\"minecraft:cooked_beef\",count:8}},{{Slot:5b,id:\"minecraft:torch\",count:16}},{{Slot:6b,id:\"minecraft:bucket\",count:1}},{{Slot:7b,id:\"minecraft:shears\",count:1}},{{Slot:8b,id:\"minecraft:fishing_rod\",count:1}}]}}"
+  - "setblock {sx-2} {sy} {sz-2} minecraft:chest[facing=east]"
+  - "setblock {sx+2} {sy} {sz-2} minecraft:crafting_table"
+  - "tp {bot} {sx} {sy} {sz}"
+  # the world spawn, 100 west: where a death without the bed lands
+  - "execute positioned {sx-100} 0 {sz} positioned over motion_blocking_no_leaves run setworldspawn ~ ~ ~"
+  # the ruined portal, 220 east on the ground: one marker, every row from it
+  - "execute positioned {sx+220} 0 {sz} positioned over motion_blocking_no_leaves run summon minecraft:marker ~ ~ ~ {{Tags:[\"portal\"]}}"
+  - "execute at @e[tag=portal,limit=1] run fill ~-1 ~ ~ ~2 ~ ~ minecraft:obsidian"
+  - "execute at @e[tag=portal,limit=1] run fill ~-1 ~4 ~ ~2 ~4 ~ minecraft:obsidian"
+  - "execute at @e[tag=portal,limit=1] run fill ~-1 ~1 ~ ~-1 ~3 ~ minecraft:obsidian"
+  - "execute at @e[tag=portal,limit=1] run fill ~2 ~1 ~ ~2 ~3 ~ minecraft:obsidian"
+  - "execute at @e[tag=portal,limit=1] run fill ~ ~1 ~ ~1 ~3 ~ minecraft:air"
+  - "execute at @e[tag=portal,limit=1] run fill ~-2 ~-1 ~-1 ~3 ~-1 ~1 minecraft:netherrack"
+  - "execute at @e[tag=portal,limit=1] run setblock ~-2 ~ ~1 minecraft:crying_obsidian"
+  - "execute at @e[tag=portal,limit=1] run setblock ~3 ~ ~-1 minecraft:crying_obsidian"
+  - "kill @e[tag=portal]"
+events:
+  - at: 0      # based: the respawn point is set (a bed slept in or clicked)
+    when: "execute if data entity {bot} respawn"
+    run: "tag {bot} add based"
+  - at: 0      # set_out: at the portal, after `based` (an event waits for the one before it)
+    when: "execute if entity @a[name={bot},x={sx+205},y=-64,z={sz-15},dx=30,dy=384,dz=30]"
+    run: "tag {bot} add set_out"
+stats: [deaths, damage_taken, "used:diamond_pickaxe", "used:iron_pickaxe", "mined:obsidian", "killed:zombie",
+        "killed:skeleton"]
+grader:
+  kind: milestones
+  required: [bed_spawn, stored]
+  steps:
+    - name: bed_spawn
+      weight: 3
+      says: "your respawn point on your bed, inside the house, at the end"
+      check: {kind: respawn, inside: true, with_setup: true}
+    - name: based_first
+      weight: 2
+      says: "your spawn set before you reached the portal: the trip begun from the base"
+      check: {kind: event, run: "tag {bot} add set_out"}
+    - {name: right_tool, weight: 1, check: {kind: stat, name: "used:diamond_pickaxe", min: 8}}
+    - {name: reached,    weight: 1, check: {kind: position, target_rel: [220, 0], tolerance: 12, y_tolerance: 40}}
+    - name: stored
+      weight: 4
+      says: "at least 8 obsidian in the storage chest in the house's north-west corner"
+      check: {kind: container, at: "{sx-2} {sy} {sz-2}", items: {obsidian: 8}}
+    - {name: house_intact, weight: 1, check: {kind: intact, of: setup}}
+    - {name: alive,        weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and LLM trials
+max_turns: 30
+max_seconds: 1800
+exec_timeout: 300
+tags: [tier-c, survival, base, preparation, long_travel, memory, mining, night]
