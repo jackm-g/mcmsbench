@@ -612,16 +612,29 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
 def container_checks(check: dict, task: Task, plot: Plot, start) -> None:
     """An uncovered `container` part carries what it asks in `check`: the chest's `at` resolved for this trial ([x, y, z])
     and the `items` it must hold, so an agent that keeps a record of what it put where can score it, as a `stat` part
-    carries its bound. ("the lighthouse chest holds all the cargo" alone did not say where, or what.)"""
+    carries its bound. ("the lighthouse chest holds all the cargo" alone did not say where, or what.) A `herd` part
+    carries its kinds, its count each and the pen's inside (`within`, six numbers); a `block_state` part its block's
+    `at`, `block` and `state`: an agent that can see animals and blocks scores them as it goes."""
     steps = {str(m.get("name")): dict(m.get("check") or {}) for m in (task.grader or {}).get("steps") or []}
+    xyz = lambda text: [int(v) for v in task._fmt(str(text), plot, start).split()]      # noqa: E731
     for u in check.get("uncovered") or []:
         spec = steps.get(str(u.get("name")))
-        if u.get("kind") != "container" or not spec or "at" not in spec:
+        if not spec:
             continue
-        with contextlib.suppress(KeyError, ValueError, IndexError):
-            at = [int(v) for v in task._fmt(str(spec["at"]), plot, start).split()]
-            items = dict(spec["items"]) if isinstance(spec.get("items"), dict) else {str(spec.get("item")): int(spec.get("count", 1))}
-            u["check"] = {"kind": "container", "at": at, "items": {str(k): int(v) for k, v in items.items()}}
+        with contextlib.suppress(KeyError, ValueError, IndexError, TypeError):
+            if u.get("kind") == "container" and "at" in spec:
+                items = dict(spec["items"]) if isinstance(spec.get("items"), dict) else {str(spec.get("item")): int(spec.get("count", 1))}
+                u["check"] = {"kind": "container", "at": xyz(spec["at"]), "items": {str(k): int(v) for k, v in items.items()}}
+            # a herd in a pen: the kinds, the count each, and the pen's inside resolved ([x1, y1, z1, x2, y2, z2])
+            elif u.get("kind") == "herd" and spec.get("within"):
+                within = xyz(spec["within"])
+                if len(within) == 6:
+                    u["check"] = {"kind": "herd", "types": [str(t) for t in spec.get("types") or []],
+                                  "min_each": int(spec.get("min_each", 1)), "within": within}
+            # a block's state (a gate shut): where, which block, what state
+            elif u.get("kind") == "block_state" and "at" in spec:
+                u["check"] = {"kind": "block_state", "at": xyz(spec["at"]), "block": str(spec.get("block", "*")),
+                              "state": dict(spec.get("state") or {})}
 
 
 def agent_options(task: Task, plot: Plot, start) -> dict:

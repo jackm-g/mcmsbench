@@ -238,3 +238,9 @@ def test_the_goal_file_says_what_cannot_be_read_live():
     says = {u["name"]: u["says"] for u in check["uncovered"]}
     assert "inside the pen" in says["penned"] and "no calf killed" in says["penned"]
     assert "gate" in says["gate_shut"] and "shut" in says["gate_shut"]
+    # what each asks, resolved for the trial, for an agent that can read animals and blocks as it goes
+    checks = {u["name"]: u["check"] for u in check["uncovered"]}
+    assert checks["penned"] == {"kind": "herd", "types": ["cow"], "min_each": 4,
+                                "within": [SX - 11, SY - 1, SZ + 3, SX - 5, SY + 2, SZ + 9]}
+    assert checks["gate_shut"] == {"kind": "block_state", "at": [SX - 8, SY, SZ + 2], "block": "*_fence_gate",
+                                   "state": {"open": False}}

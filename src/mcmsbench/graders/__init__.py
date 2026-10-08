@@ -401,6 +401,96 @@ def story_walls(ctx: Context, spec: dict) -> Result:
     return Result(all(checks.values()), sum(parts) / max(1, len(parts)), checks, detail)
 
 
+@grader("rooms")
+def rooms(ctx: Context, spec: dict) -> Result:
+    """Rooms on each story: `rooms: {1: 2, 2: 2}` (story 1 = ground) wants at least that many on each. A room is a group
+    of the story's floor cells a player walks between without opening a door (structural.rooms), at least `min_room`
+    cells (default 4): a dividing wall with an open gap in it makes one room, not two. `doors` (default true): every
+    room on the story reached from every other through doors in the walls between them (structural.doors_between),
+    not through another staircase or a hole in a wall. `min_area` as stories."""
+    _, box = structural.shell_box(built(ctx.diff), ctx.floor_y)
+    want = {int(k): int(v) for k, v in (spec.get("rooms") or {}).items()}
+    found = structural.find_stories(ctx.after, box, ctx.floor_y, spec.get("min_area", 9)) if box else []
+    checks: dict[str, bool] = {}
+    detail: dict[str, dict] = {}
+    parts: list[float] = []
+    for n, need in sorted(want.items()):
+        if n > len(found):
+            checks[f"story_{n}_rooms"] = False
+            detail[f"story_{n}"] = {"rooms": 0, "need": need, "stories": len(found)}
+            parts.append(0.0)
+            continue
+        y = found[n - 1]["y"]
+        groups = structural.rooms(found[n - 1]["cells"], int(spec.get("min_room", 4)))
+        checks[f"story_{n}_rooms"] = len(groups) >= need
+        d = {"y": y, "rooms": [len(g) for g in groups], "need": need}
+        part = [min(1.0, len(groups) / need)]
+        if spec.get("doors", True) and len(groups) > 1:
+            links = structural.doors_between(ctx.after, groups, y)
+            joined = {0}
+            while True:
+                more = {j for _, a, c in links for i, j in ((a, c), (c, a)) if i in joined} - joined
+                if not more:
+                    break
+                joined |= more
+            checks[f"story_{n}_doors"] = len(joined) == len(groups)
+            d["doors"] = [list(p) for p, _, _ in links[:8]]
+            d["joined"] = len(joined)
+            part.append(len(joined) / len(groups))
+        detail[f"story_{n}"] = d
+        parts.append(sum(part) / len(part))
+    return Result(bool(checks) and all(checks.values()), sum(parts) / max(1, len(parts)), checks, detail)
+
+
+WINDOW_GLASS = ["*glass", "*glass_pane"]
+
+
+@grader("windows")
+def windows(ctx: Context, spec: dict) -> Result:
+    """Windows in the outer walls, by story: `per_story: {1: 2, 2: 2}` (story 1 = ground) wants at least that many on
+    each. A window is glass or a glass pane in the shell's perimeter, in the story's wall rows (structural.wall_rows),
+    with open air outside it and room inside it: something to see through, not glass laid as wall material. Panes
+    that touch (side by side, one over another) are one window. `min_area` as stories."""
+    _, box = structural.shell_box(built(ctx.diff), ctx.floor_y)
+    want = {int(k): int(v) for k, v in (spec.get("per_story") or {}).items()}
+    found = structural.find_stories(ctx.after, box, ctx.floor_y, spec.get("min_area", 9)) if box else []
+
+    def open_at(p) -> bool:
+        return not structural.is_solid(ctx.after, p, ctx.floor_y)
+
+    def see_through(p) -> bool:
+        return any(not box.contains(o) and open_at(o) and box.contains(i) and open_at(i)
+                   for dx, dz in structural.XZ
+                   for o, i in [((p[0] + dx, p[1], p[2] + dz), (p[0] - dx, p[1], p[2] - dz))])
+
+    checks: dict[str, bool] = {}
+    detail: dict[str, dict] = {}
+    parts: list[float] = []
+    for n, need in sorted(want.items()):
+        if n > len(found):
+            checks[f"story_{n}_windows"] = False
+            detail[f"story_{n}"] = {"windows": 0, "need": need, "stories": len(found)}
+            parts.append(0.0)
+            continue
+        panes = {p for p in structural.ring(box, structural.wall_rows(found, box, n - 1))
+                 if _matches(ctx.after.get(p, "air"), WINDOW_GLASS) and see_through(p)}
+        count, left = 0, set(panes)
+        while left:                         # touching panes are one window
+            count += 1
+            q = [left.pop()]
+            while q:
+                x, y, z = q.pop()
+                for dx, dy, dz in structural.NEIGHBORS:
+                    nb = (x + dx, y + dy, z + dz)
+                    if nb in left:
+                        left.discard(nb)
+                        q.append(nb)
+        checks[f"story_{n}_windows"] = count >= need
+        detail[f"story_{n}"] = {"windows": count, "panes": len(panes), "need": need}
+        parts.append(min(1.0, count / need) if need else 1.0)
+    return Result(bool(checks) and all(checks.values()), sum(parts) / max(1, len(parts)), checks, detail)
+
+
 def _upstairs(p, box, level: int) -> bool:
     """A feet position (floats ok) within the shell's walls, at or above `level`."""
     x, y, z = (math.floor(v) for v in p)

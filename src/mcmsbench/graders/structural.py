@@ -261,6 +261,43 @@ def ring(box: Volume, rows) -> list[XYZ]:
             if x in (box.min[0], box.max[0]) or z in (box.min[2], box.max[2])]
 
 
+def rooms(cells: set[XYZ], min_room: int = 4) -> list[set[XYZ]]:
+    """A story's rooms: its floor cells (find_stories) in groups a player walks between without opening a door, side by
+    side at one level. A door is solid, so a wall with a door in it divides; an open gap does not. A group smaller than
+    `min_room` cells (the cell between a chest and the wall) is not a room. Largest first."""
+    left = set(cells)
+    out: list[set[XYZ]] = []
+    while left:
+        start = left.pop()
+        group = {start}
+        q = deque([start])
+        while q:
+            x, y, z = q.popleft()
+            for dx, dz in XZ:
+                n = (x + dx, y, z + dz)
+                if n in left:
+                    left.discard(n)
+                    group.add(n)
+                    q.append(n)
+        if len(group) >= min_room:
+            out.append(group)
+    return sorted(out, key=len, reverse=True)
+
+
+def doors_between(after: Snapshot, groups: list[set[XYZ]], y: int) -> list[tuple[XYZ, int, int]]:
+    """The doors at standing level `y` with a different room on each side: [(door's lower cell, room i, room j)]."""
+    where = {c: i for i, g in enumerate(groups) for c in g}
+    out = []
+    for p, b in after.items():
+        if p[1] != y or not b.endswith("_door"):
+            continue
+        for dx, dz in ((1, 0), (0, 1)):
+            a, c = where.get((p[0] - dx, y, p[2] - dz)), where.get((p[0] + dx, y, p[2] + dz))
+            if a is not None and c is not None and a != c:
+                out.append((p, a, c))
+    return out
+
+
 def _walkable(after: Snapshot, p: XYZ, floor_y: int | None) -> bool:
     """A player can occupy this cell: passable, or a door/gate they can open."""
     if not is_solid(after, p, floor_y):

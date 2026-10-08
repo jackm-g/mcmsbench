@@ -1,0 +1,54 @@
+# A two-story house with a floor plan: exactly 9x9 outside, each floor divided into two rooms joined by a door, a
+# staircase of stair blocks inside, glass windows on both floors, a front door, and the top floor shut to the outside
+# but for its windows. Then the walk that proves it: up to the top floor once the house is finished, and back out on
+# foot, by the stairs and the front door.
+#
+# Flat arena, materials given: it measures the building and the spatial reasoning, not gathering. The reference build
+# (9x9, walls 3 high per floor, a partition with a door on each floor, a 4-step staircase along a wall) uses about 330
+# planks, 4 stairs, 3 doors and 8 panes.
+#
+# What it tests beyond two_story_house and cobble_timber_house: rooms (structural.rooms: a story's floor split by a
+# wall, the door in it the only way between, so an open gap makes one room, not two) and windows that are windows
+# (glass in each story's outer wall rows, open air outside and room inside; touching panes are one). exit_route is
+# required: a house its builder cannot walk through is not finished.
+prompt: >-
+  Build a two-story house in your plot, using the materials you are carrying. It is exactly 9x9 on the outside: its
+  walls stand on a 9x9 square and nothing sticks out past them, with a roof over the top. On each floor, an inside wall
+  divides the floor into two rooms, and a door in that wall joins them (a door, not an open gap). A staircase of stair
+  blocks inside the house takes a player from the ground floor up to the second floor on foot, without jumping. The
+  ground floor has a front door to the outside; the second floor has no door or opening to the outside. Each floor has
+  at least two glass windows in its outer walls. When the house is finished, go up the stairs to the second floor,
+  then walk out of the house (down the stairs and out the front door) and finish standing outside. Do not break
+  through any wall to get out.
+anchor: [11, 0, 11]
+inventory:
+  oak_planks: 448
+  oak_stairs: 16
+  oak_door: 4
+  glass_pane: 24
+  cobblestone: 64
+  torch: 16
+grader:
+  kind: milestones
+  required: [shell, staircase, rooms, windows, walked_out]
+  steps:
+    - name: shell
+      weight: 3
+      check: {kind: structure, min_footprint: 81, min_side: 9, max_side: 9, min_interior: 60, min_placed: 250}
+    - name: staircase
+      weight: 3
+      check: {kind: stories, count: 2, min_area: 12, connected: true, stairs: true, indoor: true}
+    - name: rooms
+      weight: 3
+      says: "two rooms on each floor (at least 9 floor cells each), joined by a door in the wall between them"
+      check: {kind: rooms, rooms: {1: 2, 2: 2}, min_room: 9, min_area: 12}
+    - name: windows
+      weight: 2
+      says: "at least two glass windows in each floor's outer walls, with air outside them"
+      check: {kind: windows, per_story: {1: 2, 2: 2}, min_area: 12}
+    - {name: doors,      weight: 1, check: {kind: furnishings, items: [{name: doors, item: "*_door", count: 3, in_shell: true, clear: true}]}}
+    - {name: walked_out, weight: 3, check: {kind: exit_route, min_area: 12}}
+scripted: false   # no reference solution yet: validated by the unit tests
+max_turns: 40
+max_seconds: 2400
+tags: [tier-d, building, composite, stairs, rooms]
