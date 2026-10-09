@@ -58,6 +58,7 @@ mcmsbench check-agent NAME                                              protocol
 mcmsbench compare DIRS [--out FILE] [--summarize] [--open]              one HTML page across runs
 mcmsbench render DIRS                                                   re-render frames and reports from saved records
 mcmsbench world prepare --seed N | mcmsbench world list                 survival worlds
+mcmsbench probe slice|top --x A [B] --z C [D] --y LO HI [--dimension D] [--load]   an arena's blocks as text (read-only)
 ```
 
 `run` takes:

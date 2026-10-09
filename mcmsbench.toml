@@ -34,6 +34,8 @@ max_seconds = 600
 max_cost_usd = 5.0
 
 # A second survival arena, for a run alongside another: `mcmsbench run --slot 2 ...`
+# On a machine several users share, MCMSBENCH_LOCK_DIR in .env makes each run lease its arena (src/mcmsbench/lease.py);
+# MCMSBENCH_ONE_AT_A_TIME=1 also queues runs behind each other where two arenas at once would not fit.
 [slots.2.survival]
 port = 25568
 rcon_port = 25578
