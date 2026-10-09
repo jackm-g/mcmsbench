@@ -715,19 +715,33 @@ def agent_options(task: Task, plot: Plot, start) -> dict:
 # ------------------------------------------------------------------ reproducibility
 
 def task_hash(task_id: str) -> str:
-    """A hash of the task as it ran: its YAML with its profile merged underneath, so a changed profile changes it."""
+    """A hash of the task as it ran: its YAML with its profile merged underneath, so a changed profile changes it. A
+    task with params is hashed as its public instance (filled with its defaults; its domains are `params_hash`): the
+    instance a trial drew is in the record's `params`."""
+    from . import variants
     from .config import TASK_DIR
-    d = with_profile(yaml.safe_load((TASK_DIR / f"{task_id}.yaml").read_text()))
+    text = (TASK_DIR / f"{task_id}.yaml").read_text()
+    if "${" in text:
+        text = variants.render(text, variants.defaults(variants.params_of(text)))
+    d = with_profile(yaml.safe_load(text))
+    d.pop("params", None)
     return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
 def bench_info(task: Task, agent: Agent) -> dict:
     m = agent.manifest
     manifest_text = m.path.read_text() if m.path and m.path.exists() else ""
-    return {"sha": git_sha(), "protocol": PROTOCOL_VERSION, "task_hash": task_hash(task.id),
-            "agent": agent.name, "provider": agent.provider or None, "model": agent.model,
-            "manifest_hash": hashlib.sha256(manifest_text.encode()).hexdigest()[:16],
-            "capabilities": sorted(agent.capabilities)}
+    out = {"sha": git_sha(), "protocol": PROTOCOL_VERSION, "task_hash": task_hash(task.id),
+           "agent": agent.name, "provider": agent.provider or None, "model": agent.model,
+           "manifest_hash": hashlib.sha256(manifest_text.encode()).hexdigest()[:16],
+           "capabilities": sorted(agent.capabilities), "split": task.split}
+    if task.params:
+        out["params"] = dict(task.param_values)
+        out["params_hash"] = hashlib.sha256(json.dumps(task.params, sort_keys=True, default=str).encode()).hexdigest()[:16]
+    if task.split == "heldout":
+        from .variants import heldout_key, key_id
+        out["key_id"] = key_id(heldout_key() or "")
+    return out
 
 
 def caveats_for(task: Task, agent: Agent) -> list[dict]:
@@ -1103,7 +1117,8 @@ def summarize(records: list[TrialRecord]) -> dict:
         graded = [r for r in rs if r.result]
         passed = sum(1 for r in graded if r.result["passed"])
         rows.append({
-            "task": tid, "mode": rs[0].mode, "model": rs[0].trace.get("model", "-"), "trials": len(rs),
+            "task": tid, "mode": rs[0].mode, "split": (rs[0].bench or {}).get("split", "public"),
+            "model": rs[0].trace.get("model", "-"), "trials": len(rs),
             "pass_rate": round(passed / len(graded), 2) if graded else None,
             "mean_score": round(sum(r.result["score"] for r in graded) / len(graded), 2) if graded else None,
             "mean_seconds": round(sum(r.seconds for r in rs) / len(rs), 1),
@@ -1116,10 +1131,11 @@ def summarize(records: list[TrialRecord]) -> dict:
 
 
 def print_summary(summary: dict) -> None:
-    cols = ["task", "mode", "model", "trials", "pass_rate", "mean_score", "mean_seconds", "mean_turns", "mean_cost_usd", "errors"]
+    cols = ["task", "mode", "model", "split", "trials", "pass_rate", "mean_score", "mean_seconds", "mean_turns",
+            "mean_cost_usd", "errors"]
     print("\n" + " | ".join(f"{c:>14}" for c in cols))
     for row in summary["rows"]:
-        print(" | ".join(f"{str(row[c]):>14}" for c in cols) + (f"  (caveat: needs {row['caveats']})" if row.get("caveats") else ""))
+        print(" | ".join(f"{str(row.get(c, '-')):>14}" for c in cols) + (f"  (caveat: needs {row['caveats']})" if row.get("caveats") else ""))
 
 
 # ------------------------------------------------------------------ a run
@@ -1151,7 +1167,9 @@ def open_env(s: Settings, kind: str) -> Env:
 
 
 def run(tasks: list[Task], agent: Agent, s: Settings, run_dir: Path, *, trials: int | None = None,
-        resume: bool = False, render: bool = True, open_report: bool = False) -> list[TrialRecord]:
+        resume: bool = False, render: bool = True, open_report: bool = False, split: str = "public") -> list[TrialRecord]:
+    """Each task's trials in turn. In the varied and heldout splits each trial is its own instance of a task with
+    params (variants.py): trial i draws instance i."""
     records: list[TrialRecord] = []
     envs: dict[str, Env] = {}
     dead = None
@@ -1174,9 +1192,11 @@ def run(tasks: list[Task], agent: Agent, s: Settings, run_dir: Path, *, trials: 
                     print(f"\n=== {task.id} trial {i + 1}/{n} [{agent.name}] === (resumed: already done)")
                     records.append(rec)
                     continue
-                print(f"\n=== {task.id} trial {i + 1}/{n} [{agent.name}] ===")
+                inst = task.instance(split, i)
+                shown = f" [{split}]" if inst.params and split != "public" else ""
+                print(f"\n=== {task.id} trial {i + 1}/{n} [{agent.name}]{shown} ===")
                 try:
-                    rec = run_trial(s, env.arena, env.observer, env.stand_in, task, i, agent, out_dir, render=render)
+                    rec = run_trial(s, env.arena, env.observer, env.stand_in, inst, i, agent, out_dir, render=render)
                 except ObserverDead as e:
                     # the observer is every grade's eyes: nothing more can run here. Stop cleanly, with what is done
                     # on record; --resume carries on from this trial in a fresh process
@@ -1214,14 +1234,17 @@ def run(tasks: list[Task], agent: Agent, s: Settings, run_dir: Path, *, trials: 
 
 
 def select_tasks(ids: list[str] | None, all_: bool, tags: list[str] | None) -> list[Task]:
-    tasks = list(load_all().values()) if all_ else [load(t) for t in (ids or [])]
+    """The tasks named, or all of them; with `tags`, those carrying any of them. The tag `variants` selects the tasks
+    with params without being one of their tags (tags reach the goal file; which tasks vary is the bench's business)."""
+    tasks = list(load_all().values()) if all_ or (tags and not ids) else [load(t) for t in (ids or [])]
     if tags:
-        tasks = [t for t in tasks if any(tag in t.tags for tag in tags)]
+        tasks = [t for t in tasks if any(tag in t.tags or (tag == "variants" and t.params) for tag in tags)]
     return tasks
 
 
-def default_run_dir(agent: Agent) -> Path:
-    return ROOT / "runs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{agent.name}"
+def default_run_dir(agent: Agent, split: str = "public") -> Path:
+    tail = "" if split == "public" else f"-{split}"
+    return ROOT / "runs" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{agent.name}{tail}"
 
 
 __all__ = ["TrialRecord", "Observer", "StandIn", "run_trial", "run", "build_goal", "config"]

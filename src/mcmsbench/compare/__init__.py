@@ -94,8 +94,13 @@ def load_trial(path: Path) -> Trial:
     if not ms and det.get("reached_at_step"):
         ms = {k: None for k in det["reached_at_step"]}
     strat_path = path.with_suffix(".strategy.json")
+    bench = d.get("bench") or {}
+    label = label_of(tr, d.get("mode", "?"))
+    if bench.get("split", "public") != "public" and bench.get("params"):
+        # a split's instances are other tasks than the public ones: never the same column (nor one key's with another's)
+        label += f" [{bench['split']}{' ' + bench['key_id'] if bench.get('key_id') else ''}]"
     return Trial(
-        task=d["task"], label=label_of(tr, d.get("mode", "?")), trial=d["trial"], path=path,
+        task=d["task"], label=label, trial=d["trial"], path=path,
         passed=res["passed"] if res else None, score=res["score"] if res else None,
         seconds=d.get("seconds", 0.0), turns=tr.get("turns", 0), cost=tr.get("cost_usd", 0.0) or 0.0,
         input_tokens=tr.get("input_tokens", 0), output_tokens=tr.get("output_tokens", 0),

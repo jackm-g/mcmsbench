@@ -50,9 +50,10 @@ and delete the survival world.
 
 ```
 mcmsbench run --agent NAME --task ID [--task ID ...] | --all [--tag T]   run trials
+mcmsbench heldout init | rotate | id                                    the held-out split's secret key (in .env)
 mcmsbench agents                                                        manifests on the agent path, and whether each is installed
 mcmsbench tasks [--tag T]                                               the tasks
-mcmsbench goal --task ID [--trial N]                                    the goal file a task makes (no server needed)
+mcmsbench goal --task ID [--trial N] [--split S [--reveal]]             the goal file a task makes (no server needed)
 mcmsbench check-agent NAME                                              protocol conformance (runs the agent twice)
 mcmsbench compare DIRS [--out FILE] [--summarize] [--open]              one HTML page across runs
 mcmsbench render DIRS                                                   re-render frames and reports from saved records
@@ -69,6 +70,7 @@ mcmsbench world prepare --seed N | mcmsbench world list                 survival
 | `--trials N` | override each task's `trials` |
 | `--run-dir D`, `--resume` | write into D; with `--resume`, skip trials that already have a record there |
 | `--slot NAME` | run on the arenas of `[slots.NAME]` in `mcmsbench.toml` |
+| `--split S` | `public` (default), `varied` or `heldout`: which instances of tasks with params ([Splits](#splits)) |
 | `--no-render`, `--open` | skip frame images and HTML reports; open the run's index when done |
 
 `compare --summarize` adds a one-paragraph strategy summary per trial. It needs `pip install -e ".[summarize]"` and
@@ -116,6 +118,37 @@ These tasks list the capability they need under `requires:`. An agent whose mani
 still runs. Its trial carries a `caveats` entry, and the summary flags the task, because that score is not comparable
 across agents.
 
+## Splits
+
+A task that names `params` is a family of instances. Each param has a default and a domain, and the task file uses
+them as `${...}` (`${size}x${size}`, `${4 * (size - 1) * height + 52}`, `${name}`), filled in before the file is
+read, so the prompt, setup, events, inventory and grader always agree. `src/mcmsbench/variants.py` has the rules.
+
+| split | instances | for |
+|---|---|---|
+| `public` | the defaults: every task as written, the same every run | developing an agent |
+| `varied` | drawn by a public seed (task, trial): trial *i* is instance *i*, the same for everyone | seeing whether what works on the public instance generalises |
+| `heldout` | drawn by a secret key, never the public instance | scores that mean something: instances no one tuned for |
+
+```bash
+mcmsbench heldout init                                              # once: a key in .env (gitignored)
+mcmsbench run --agent myagent --split heldout --tag variants --trials 5
+```
+
+Tasks with params today: `multi_room_house` (size, rooms a floor, windows, wood), `two_story_house` (footprint,
+fittings, wood), `tower_under_threat` (size, height, where the bot starts, the two at the site), `helping_pat` (the
+friend's name, the counts, the camp), `housesitter_beetroot` (the crop, how many) and `nether_highway` (the cargo).
+`mcmsbench tasks` lists each one's params.
+
+Keep the held-out split held out:
+
+- The key is in `.env` and nowhere else. The bench never passes it to an agent's process.
+- A run's records show the instances it drew (the goal files, `bench.params`). Don't develop an agent against
+  held-out records. Once they have been read, `mcmsbench heldout rotate` and treat the old key's scores as spent.
+  Every held-out trial records its key's id (`bench.key_id`), so scores from different keys are never mixed.
+- `mcmsbench goal --split heldout` needs `--reveal`: an instance shown is no longer unseen.
+- Report held-out scores over several trials (`--trials 5`): each trial is a different instance.
+
 ## Adding an agent
 
 An agent is any program, in any language, that can play Minecraft through a client such as
@@ -133,6 +166,10 @@ An agent is any program, in any language, that can play Minecraft through a clie
    `mcmsbench run --agent myagent --task place_one`.
 
 ## Adding a task
+
+A task whose numbers, places, names or materials could be otherwise should name them as `params` ([Splits](#splits)),
+with the instance it was written as for the defaults. Check that every draw can be done: the materials cover it, the
+places are on the land and inside the border, the grader asks what the prompt says (`tests/test_variants.py`).
 
 A task is a YAML file in `tasks/`. It has a prompt, a world, a start, an inventory, setup commands, and a grader built
 from server truth. `mcmsbench goal --task <id>` shows what an agent will get. Graders are in `src/mcmsbench/graders/`;

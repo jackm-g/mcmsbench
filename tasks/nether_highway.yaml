@@ -22,13 +22,26 @@
 # at least 80 blocks from where the bot came in (the position track, with the dimension of each sample: walking the
 # 800 blocks overworld is the trip this task is not), the bot alive. Not required: where it left the Nether (within 16
 # of the base's eighth-scaled point), and arriving at the base on the track.
+#
+# Params (variants.py): the public instance carries 24 iron ingots. The varied and held-out splits draw the cargo
+# (iron, gold, copper, diamonds or emeralds) and how much (12..32). The route is the seed's: one surveyed corridor.
+params:
+  cargo:
+    default: {item: iron_ingot, words: "iron ingots"}
+    choices:
+      - {item: iron_ingot, words: "iron ingots"}
+      - {item: gold_ingot, words: "gold ingots"}
+      - {item: copper_ingot, words: "copper ingots"}
+      - {item: diamond, words: "diamonds"}
+      - {item: emerald, words: "emeralds"}
+  count: {default: 24, range: [12, 32]}
 prompt: >-
   My other base is way out west, at about x {sx-807}, z {sz-5}, on a hill between two lakes. That's around 800 blocks, too far
-  to walk, so go through the Nether: the portal by the river here is lit. Take the 24 iron ingots you're carrying to
+  to walk, so go through the Nether: the portal by the river here is lit. Take the ${count} ${cargo.words} you're carrying to
   the chest by the bed in that base. You'll need to build a portal in the Nether to come back out near it: you have
   obsidian and a flint and steel, and the base has a lit portal of its own, so a portal in the right spot in the
   Nether comes out right beside it. Wear the gold helmet over there so the piglins leave you alone.
-inventory: {iron_ingot: 24, obsidian: 14, flint_and_steel: 1, iron_pickaxe: 1, iron_sword: 1, golden_helmet: 1,
+inventory: {${cargo.item}: ${count}, obsidian: 14, flint_and_steel: 1, iron_pickaxe: 1, iron_sword: 1, golden_helmet: 1,
             cobblestone: 64, bread: 16}
 world: {type: survival, seeds: [2], border: 2000, difficulty: normal, daylight: false}
 start: {time: 6000, weather: clear}
@@ -83,8 +96,8 @@ grader:
     - {name: arrived, weight: 1, check: {kind: position, target_rel: [-807, 14, -5], tolerance: 16, y_tolerance: 10}}
     - name: delivered
       weight: 4
-      says: "the chest by the bed in the far base holds the 24 iron ingots"
-      check: {kind: container, at: "{sx-800} {sy+14} {sz-7}", items: {iron_ingot: 24}}
+      says: "the chest by the bed in the far base holds the ${count} ${cargo.words}"
+      check: {kind: container, at: "{sx-800} {sy+14} {sz-7}", items: {${cargo.item}: ${count}}}
     - {name: alive, weight: 2, hold: true, check: {kind: survived}}
 scripted: false   # no reference solution yet: validated by the unit tests and a smoke run that drives it over RCON
 max_turns: 40

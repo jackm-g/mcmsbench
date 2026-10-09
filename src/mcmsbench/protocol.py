@@ -227,8 +227,13 @@ class Agent:
                 + render_args(self.manifest.args, values) + self.extra_args)
 
     def environment(self) -> dict:
-        return {**os.environ, **{k: expand_env(str(v)) for k, v in self.manifest.env.items()},
-                "MCMSBENCH_PROTOCOL": str(PROTOCOL_VERSION)}
+        """The bench's environment, the manifest's additions, and the protocol version; never the held-out key (an
+        agent that could read it could draw the held-out instances itself)."""
+        from .variants import KEY_ENV
+        env = {**os.environ, **{k: expand_env(str(v)) for k, v in self.manifest.env.items()},
+               "MCMSBENCH_PROTOCOL": str(PROTOCOL_VERSION)}
+        env.pop(KEY_ENV, None)
+        return env
 
     def run(self, ctx: TrialContext) -> dict:
         tag = f"[{self.name}]"

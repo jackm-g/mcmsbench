@@ -104,6 +104,10 @@ class Task:
                                       # those kinds, counts the ones the bot kills (the `herd` grader's max_baby_kills) and
                                       # ages them `grow` times as fast (a calf is 20 real minutes otherwise); `strays: true`
                                       # removes adults of those kinds the world spawns (natural spawning, jockeys)
+    params: dict = field(default_factory=dict)        # the task's variant params (variants.py): {name: {default, choices|range}}
+    param_values: dict = field(default_factory=dict)  # the values this instance was drawn with
+    split: str = "public"                             # the split it was drawn for (public: the defaults)
+    source: Path | None = None                        # its file, for drawing another instance
 
     def seed_for(self, trial: int) -> int:
         return self.world.seeds[trial % len(self.world.seeds)]
@@ -246,8 +250,21 @@ class Task:
         return self._fmt(self.prompt, plot, start)
 
     @classmethod
-    def from_yaml(cls, path: Path) -> "Task":
-        d = with_profile(yaml.safe_load(path.read_text()))
+    def from_yaml(cls, path: Path, split: str = "public", trial: int = 0, key: str | None = None) -> "Task":
+        """The task in `path`, as trial `trial` of `split` draws it (variants.py): its `${...}` filled with the
+        drawn params before it is read. A task without params is the same in every split."""
+        from . import variants
+        text = path.read_text()
+        spec = variants.params_of(text)
+        values: dict = {}
+        if spec or "${" in text:
+            if split == "heldout" and spec and key is None:
+                key = variants.heldout_key()
+            values = variants.draw(path.stem, spec, split, trial, key)
+            text = variants.render(text, values)
+        d = with_profile(yaml.safe_load(text))
+        d.pop("params", None)
+        d.update(params=spec, param_values=values, split=split if spec else "public", source=path)
         d.setdefault("id", path.stem)
         if "anchor" in d:
             d["anchor"] = tuple(d["anchor"])
@@ -256,6 +273,12 @@ class Task:
         if "start" in d:
             d["start"] = StartSpec(**d["start"])
         return cls(**d)
+
+    def instance(self, split: str, trial: int, key: str | None = None) -> "Task":
+        """This task as trial `trial` of `split` draws it; itself when it has no params."""
+        if not self.params or self.source is None:
+            return self
+        return Task.from_yaml(self.source, split, trial, key)
 
     @classmethod
     def free_form(cls, prompt: str, **kw) -> "Task":
@@ -307,8 +330,8 @@ def load_all() -> dict[str, Task]:
     return {p.stem: Task.from_yaml(p) for p in sorted(TASK_DIR.glob("*.yaml"))}
 
 
-def load(task_id: str) -> Task:
+def load(task_id: str, split: str = "public", trial: int = 0) -> Task:
     p = TASK_DIR / f"{task_id}.yaml"
     if not p.exists():
         raise FileNotFoundError(f"no task {task_id!r}; available: {sorted(load_all())}")
-    return Task.from_yaml(p)
+    return Task.from_yaml(p, split, trial)

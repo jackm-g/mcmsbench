@@ -20,15 +20,26 @@
 # its door, to the far edge of the yard (`walkable`); and no death.
 profile: prod
 world: {biome: null, radius: 24}
+#
+# Params (variants.py): the public instance is the beetroot farm above. The varied and held-out splits draw the crop
+# (beetroot, carrots or potatoes: each planted from its own item, each a different block) and how many (12..20).
+params:
+  crop:
+    default: {farm: beetroot, planted: beetroot, item: beetroot_seeds, block: beetroots, items: "beetroot seeds"}
+    choices:
+      - {farm: beetroot, planted: beetroot, item: beetroot_seeds, block: beetroots, items: "beetroot seeds"}
+      - {farm: carrot, planted: carrots, item: carrot, block: carrots, items: "carrots to plant"}
+      - {farm: potato, planted: potatoes, item: potato, block: potatoes, items: "seed potatoes"}
+  count: {default: 16, range: [12, 20]}
 prompt: >-
-  I'm away for a bit. While I'm gone, put in a new beetroot farm for me on the open ground west of my house: at
-  least 16 beetroot planted, on farmland that's properly watered so it actually grows. The beetroot seeds are in the
+  I'm away for a bit. While I'm gone, put in a new ${crop.farm} farm for me on the open ground west of my house: at
+  least ${count} ${crop.planted} planted, on farmland that's properly watered so it actually grows. The ${crop.items} are in the
   chest next to my bed, with a hoe and a bucket. Don't break or block anything of mine, and leave the wheat alone:
   I'll harvest it myself.
 inventory: {cobblestone: 2048, bread: 6}
 start: {time: 9000, weather: clear, distance: 80, bearing: 90, world_spawn: true}
 movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
-stats: [deaths, damage_taken, kills, walked, "used:beetroot_seeds"]
+stats: [deaths, damage_taken, kills, walked, "used:${crop.item}"]
 setup:
   # the yard: 29x29 of grass round the old spawn, clear 16 up (no tree tops left hanging), dirt below
   - "fill {sx-14} {sy} {sz-14} {sx+14} {sy+16} {sz+14} minecraft:air"
@@ -54,7 +65,7 @@ setup:
   # inside: the bed in the north-west corner, the seed chest beside it, a crafting table and furnace, the larder
   - "setblock {sx-2} {sy} {sz-10} minecraft:white_bed[facing=north,part=head]"
   - "setblock {sx-2} {sy} {sz-9} minecraft:white_bed[facing=north,part=foot]"
-  - "setblock {sx-1} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:beetroot_seeds\",count:24}},{{Slot:1b,id:\"minecraft:iron_hoe\",count:1}},{{Slot:2b,id:\"minecraft:bucket\",count:1}},{{Slot:5b,id:\"minecraft:string\",count:4}}]}}"
+  - "setblock {sx-1} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:${crop.item}\",count:${count + 8}}},{{Slot:1b,id:\"minecraft:iron_hoe\",count:1}},{{Slot:2b,id:\"minecraft:bucket\",count:1}},{{Slot:5b,id:\"minecraft:string\",count:4}}]}}"
   - "setblock {sx+1} {sy} {sz-10} minecraft:crafting_table"
   - "setblock {sx+2} {sy} {sz-10} minecraft:furnace[facing=south]"
   - "setblock {sx+2} {sy} {sz-7} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:wheat_seeds\",count:32}},{{Slot:1b,id:\"minecraft:wheat\",count:7}},{{Slot:2b,id:\"minecraft:bread\",count:5}},{{Slot:3b,id:\"minecraft:coal\",count:9}}]}}"
@@ -84,8 +95,8 @@ grader:
   kind: milestones
   required: [watered, base_intact, door, alive]
   steps:
-    - {name: planted,     weight: 2, check: {kind: blocks, block: beetroots, min: 16}}
-    - {name: watered,     weight: 4, check: {kind: hydrated, crop: beetroots, min: 16, ticks: 400, wait: 12, restore: 3}}
+    - {name: planted,     weight: 2, check: {kind: blocks, block: "${crop.block}", min: ${count}}}
+    - {name: watered,     weight: 4, check: {kind: hydrated, crop: "${crop.block}", min: ${count}, ticks: 400, wait: 12, restore: 3}}
     - {name: base_intact, weight: 3, check: {kind: intact, of: setup, max_broken: 0}}
     - name: door
       weight: 2

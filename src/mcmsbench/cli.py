@@ -1,9 +1,11 @@
 """mcmsbench: the command line.
 
   mcmsbench run --agent NAME --task ID [--task ID ...] | --all [--tag T]   run trials, write runs/<stamp>-<agent>/
+                [--split public|varied|heldout]                         which instances of tasks with params (variants.py)
   mcmsbench agents                                                        the manifests on MCMSBENCH_AGENT_PATH, and whether each is installed
   mcmsbench tasks [--tag T]                                               the tasks
-  mcmsbench goal --task ID [--trial N]                                    the goal file a task makes (no server needed)
+  mcmsbench goal --task ID [--trial N] [--split S [--reveal]]             the goal file a task makes (no server needed)
+  mcmsbench heldout init | rotate | id                                    the held-out split's secret key (in .env)
   mcmsbench check-agent NAME                                              protocol conformance (runs the agent twice)
   mcmsbench compare DIRS [--out FILE] [--summarize] [--open]              one HTML page across runs
   mcmsbench render DIRS                                                   re-render frames and reports from records
@@ -46,16 +48,25 @@ def cmd_run(argv: list[str]) -> int:
     p.add_argument("--no-render", action="store_true", help="skip frame images and HTML reports")
     p.add_argument("--open", action="store_true", help="open the run's HTML index when done")
     p.add_argument("--slot", help="run on the arenas of [slots.NAME] in mcmsbench.toml (alongside another run)")
+    p.add_argument("--split", default="public", choices=["public", "varied", "heldout"],
+                   help="public: tasks as written (default); varied: instances drawn by a public seed; heldout: "
+                        "instances drawn by the secret key (tasks with params; trial i is instance i)")
     a = p.parse_args(argv)
     s = config.load(slot=a.slot)
+    if a.split == "heldout":
+        from .variants import heldout_key, key_id
+        if not heldout_key():
+            p.error("the heldout split needs a key: `mcmsbench heldout init`")
+        print(f"held-out key {key_id(heldout_key())}")
     tasks = select_tasks(a.task, a.all, a.tag)
     if not tasks:
         p.error("give --task ID or --all (and check --tag)")
     agent = _agent(a)
     agent.check_installed()
     print(f"agent: {agent.name} ({agent.model}) in {agent.dir}")
-    run_dir = Path(a.run_dir).resolve() if a.run_dir else default_run_dir(agent)
-    run(tasks, agent, s, run_dir, trials=a.trials, resume=a.resume, render=not a.no_render, open_report=a.open)
+    run_dir = Path(a.run_dir).resolve() if a.run_dir else default_run_dir(agent, a.split)
+    run(tasks, agent, s, run_dir, trials=a.trials, resume=a.resume, render=not a.no_render, open_report=a.open,
+        split=a.split)
     return 0
 
 
@@ -82,10 +93,11 @@ def cmd_tasks(argv: list[str]) -> int:
     p.add_argument("--tag", action="append")
     a = p.parse_args(argv)
     for t in load_all().values():
-        if a.tag and not any(tag in t.tags for tag in a.tag):
+        if a.tag and not any(tag in t.tags or (tag == "variants" and t.params) for tag in a.tag):
             continue
         req = f" requires={t.requires}" if t.requires else ""
-        print(f"{t.id:<26} {t.world.type:<9} {t.max_seconds or '-':>5}s  {' '.join(t.tags)}{req}")
+        par = f" params={','.join(t.params)}" if t.params else ""
+        print(f"{t.id:<26} {t.world.type:<9} {t.max_seconds or '-':>5}s  {' '.join(t.tags)}{req}{par}")
     return 0
 
 
@@ -115,9 +127,13 @@ def cmd_goal(argv: list[str]) -> int:
                                 "would get it (positions as the default arenas lay the plot out).")
     p.add_argument("--task", required=True)
     p.add_argument("--trial", type=int, default=0)
+    p.add_argument("--split", default="public", choices=["public", "varied", "heldout"])
+    p.add_argument("--reveal", action="store_true", help="show a held-out instance (it is no longer unseen after)")
     a = p.parse_args(argv)
+    if a.split == "heldout" and not a.reveal:
+        p.error("a held-out instance shown is one seen: add --reveal (and rotate the key before relying on it again)")
     s = config.load()
-    task = load(a.task)
+    task = load(a.task, a.split, a.trial)
     plot, start = offline_plot(task, s, a.trial)
     goal = build_goal(task, plot, start, s, a.trial, seed=task.seed_for(a.trial) if task.world.type == "survival" else None,
                       fast_nights=bool(task.fast_nights and task.world.daylight), grader_stops=stops_on_pass(task),
@@ -246,8 +262,32 @@ def cmd_world(argv: list[str]) -> int:
     return 0
 
 
+def cmd_heldout(argv: list[str]) -> int:
+    """The held-out split's key: `init` puts a new one in .env when there is none, `rotate` replaces it (new instances;
+    results under the old key keep its id), `id` prints the key's public id."""
+    from .variants import KEY_ENV, heldout_key, key_id, new_key
+    p = argparse.ArgumentParser(prog="mcmsbench heldout", description=cmd_heldout.__doc__)
+    p.add_argument("cmd", choices=["init", "rotate", "id"])
+    a = p.parse_args(argv)
+    env = config.ROOT / ".env"
+    have = heldout_key()
+    if a.cmd == "id":
+        print(key_id(have) if have else f"no key: {KEY_ENV} is not set (`mcmsbench heldout init`)")
+        return 0 if have else 1
+    if a.cmd == "init" and have:
+        print(f"a key is already set ({key_id(have)}); `mcmsbench heldout rotate` replaces it")
+        return 0
+    key = new_key()
+    lines = env.read_text().splitlines() if env.exists() else []
+    lines = [ln for ln in lines if not ln.startswith(f"{KEY_ENV}=")] + [f"{KEY_ENV}={key}"]
+    env.write_text("\n".join(lines) + "\n")
+    print(f"{'rotated' if have else 'new'} held-out key {key_id(key)} in {env}"
+          + (f" (was {key_id(have)})" if have else "") + ": keep .env out of git and away from agents")
+    return 0
+
+
 COMMANDS = {"run": cmd_run, "agents": cmd_agents, "tasks": cmd_tasks, "goal": cmd_goal, "check-agent": cmd_check_agent,
-            "compare": cmd_compare, "render": cmd_render, "world": cmd_world}
+            "compare": cmd_compare, "render": cmd_render, "world": cmd_world, "heldout": cmd_heldout}
 
 
 def main(argv: list[str] | None = None) -> int:
