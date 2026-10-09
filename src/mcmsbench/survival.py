@@ -50,6 +50,8 @@ class ServerControl:
     """docker compose start/stop for one service, plus RCON readiness."""
 
     def __init__(self, cfg: SurvivalConfig):
+        from . import lease
+        lease.hold(cfg.port)            # held until the process exits; off unless MCMSBENCH_LOCK_DIR is set
         self.cfg = cfg
 
     def _compose(self, *args: str, env: dict | None = None) -> None:

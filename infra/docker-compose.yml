@@ -26,6 +26,10 @@ x-arena: &arena
     SNOOPER_ENABLED: "false"
     ALLOW_FLIGHT: "true"
     OVERRIDE_SERVER_PROPERTIES: "true"
+    # The server's user inside the container owns infra/data-*; the runner restores worlds there as the host user.
+    # On a Linux host that user must be the same uid (ARENA_UID/ARENA_GID in .env); Docker Desktop maps it anyway.
+    UID: ${ARENA_UID:-1000}
+    GID: ${ARENA_GID:-1000}
 
 services:
   arena:
