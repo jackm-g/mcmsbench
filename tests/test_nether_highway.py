@@ -200,6 +200,7 @@ def test_the_goal_file_says_where_the_iron_goes_and_what_the_leg_is():
     unc = {u["name"]: u for u in goal["check"]["uncovered"]}
     assert unc["delivered"]["check"] == {"kind": "container", "at": list(CHEST), "items": {"iron_ingot": 24}}
     assert "80 blocks across the Nether" in unc["nether_leg"]["says"]
+    assert unc["nether_leg"]["check"] == {"kind": "leg", "dimension": "the_nether", "min_travel": 80.0}
 
 
 # ------------------------------------------------------------------ Nether chunks loaded for setup

@@ -133,7 +133,9 @@ block, state: {name: value}}`, such as a gate that must be shut. An agent that c
 both as it goes. A `rooms`, `windows` or `exit_route` part carries `check: {kind: "grader", spec, plot, floor_y,
 center}`, the shape of a live `grader` part: the bench's spec on this trial's plot, for an agent that keeps its own
 copy of that grader. `exit_route` reads the trial's frames and position track, so such an agent keeps its own record
-of where it walked.
+of where it walked. A `leg` part carries `check: {kind: "leg", dimension, min_travel, exit_near?: [x, z], tolerance?}`:
+a stretch of the trip in that dimension (such as `the_nether`) that must reach `min_travel` blocks (x and z) from where
+the agent came in, and, with `exit_near`, leave it within `tolerance` of that point, in that dimension's coordinates.
 
 ### 4.2 `options`
 

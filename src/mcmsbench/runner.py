@@ -661,7 +661,8 @@ def container_checks(check: dict, task: Task, plot: Plot, start) -> None:
     and the `items` it must hold, so an agent that keeps a record of what it put where can score it, as a `stat` part
     carries its bound. ("the lighthouse chest holds all the cargo" alone did not say where, or what.) A `herd` part
     carries its kinds, its count each and the pen's inside (`within`, six numbers); a `block_state` part its block's
-    `at`, `block` and `state`: an agent that can see animals and blocks scores them as it goes."""
+    `at`, `block` and `state`: an agent that can see animals and blocks scores them as it goes. A `leg` part carries its
+    dimension and `min_travel` (and `exit_near`, [x, z] in that dimension, when it asks one)."""
     steps = {str(m.get("name")): dict(m.get("check") or {}) for m in (task.grader or {}).get("steps") or []}
     xyz = lambda text: [int(v) for v in task._fmt(str(text), plot, start).split()]      # noqa: E731
     for u in check.get("uncovered") or []:
@@ -682,6 +683,15 @@ def container_checks(check: dict, task: Task, plot: Plot, start) -> None:
             elif u.get("kind") == "block_state" and "at" in spec:
                 u["check"] = {"kind": "block_state", "at": xyz(spec["at"]), "block": str(spec.get("block", "*")),
                               "state": dict(spec.get("state") or {})}
+            # a leg of the trip in one dimension: which, how far from where it came in, and (when asked) the point it
+            # leaves by, in that dimension's coordinates ("80 blocks across the Nether" alone was words)
+            elif u.get("kind") == "leg":
+                leg = {"kind": "leg", "dimension": str(spec.get("dimension", "the_nether")),
+                       "min_travel": float(spec.get("min_travel", 0))}
+                if spec.get("exit_near"):
+                    leg["exit_near"] = xyz(spec["exit_near"])
+                    leg["tolerance"] = float(spec.get("tolerance", 16))
+                u["check"] = leg
 
 
 def agent_options(task: Task, plot: Plot, start) -> dict:
