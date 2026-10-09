@@ -89,6 +89,9 @@ UNCOVERED = {
                   "out the door) without opening the upper walls, from the trial's frames and position track",
 }
 LIVE_GRADERS = ("structure", "stories", "furnishings", "level_site", "exact", "schematic", "story_walls")   # the grader's own code, live
+# uncovered, but carrying the grader's spec on the plot (as a `grader` check): a house's rooms and windows, read from
+# the finished world, and the walk out of it, from the trial's frames and track, for an agent with its own copy
+OWN_COPY = ("rooms", "windows", "exit_route")
 GRADER_SCAN_CELLS = 60_000         # a live scan bigger than this is not made: the part is unknown
 BLOCKS_SCAN_REACH = 24             # blocks around the site a live `blocks` count reaches
 
@@ -96,7 +99,8 @@ BLOCKS_SCAN_REACH = 24             # blocks around the site a live `blocks` coun
 def composite_from_grader(grader: dict, plot) -> dict:
     """{'kind': 'all', 'parts': [{'name', 'role', 'check', 'proxy', 'terminal'}], 'uncovered': [{'name', 'kind',
     'says', 'check'?}], 'from': 'grader'} from a grader and the trial's plot (positions resolved to absolute coordinates).
-    A `stat` part stays uncovered (an agent cannot read the server's counter) but carries its spec as `check`."""
+    A `stat` part stays uncovered (an agent cannot read the server's counter) but carries its spec as `check`; so does
+    a `rooms`, `windows` or `exit_route` part, as a `grader` check on the plot."""
     if grader.get("kind") == "milestones":
         req = grader.get("required")
         required = [req] if isinstance(req, str) else list(req or [])
@@ -121,6 +125,12 @@ def composite_from_grader(grader: dict, plot) -> dict:
                 # the counter and what it must reach, for an agent that keeps its own count (of its kills, say):
                 # "a server counter (killed:zombie)" alone did not say how many
                 u["check"] = {k: spec[k] for k in ("kind", "name", "min", "max", "op", "value") if k in spec}
+            elif spec.get("kind") in OWN_COPY:
+                # the grader's spec on this plot, for an agent that keeps its own copy of the grader: "two rooms on
+                # each floor" alone did not say how small a room may be, or which floors
+                c, lo, hi, floor_y = _plot_frame(plot)
+                u["check"] = {"kind": "grader", "spec": spec, "plot": [list(lo), list(hi)], "floor_y": floor_y,
+                              "center": list(c)}
             uncovered.append(u)
             continue
         role = "required" if (not required or name in required) else "must"

@@ -178,3 +178,8 @@ def test_the_goal_file_says_what_rooms_and_windows_mean():
     says = {u["name"]: u["says"] for u in goal["check"]["uncovered"]}
     assert "door in the wall between them" in says["rooms"] and "glass windows" in says["windows"]
     assert "exit_route" in {u["kind"] for u in goal["check"]["uncovered"]}
+    # each carries the grader's spec on the plot, for an agent with its own copy of the grader
+    checks = {u["name"]: u["check"] for u in goal["check"]["uncovered"]}
+    assert checks["rooms"]["kind"] == "grader" and checks["rooms"]["spec"]["rooms"] == {1: 2, 2: 2}
+    assert checks["windows"]["spec"]["per_story"] == {1: 2, 2: 2}
+    assert checks["walked_out"]["spec"]["kind"] == "exit_route" and checks["walked_out"]["floor_y"] == FLOOR

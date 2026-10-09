@@ -125,7 +125,10 @@ grader reads at the end and what it must hold then, for an agent that keeps a re
 part carries `check: {kind: "herd", types: [kind], min_each: n, within: [x1, y1, z1, x2, y2, z2]}`: the animals that must
 stand in that box at the end, the young counted. A `block_state` part carries `check: {kind: "block_state", at: [x, y, z],
 block, state: {name: value}}`, such as a gate that must be shut. An agent that can see animals and blocks can score
-both as it goes.
+both as it goes. A `rooms`, `windows` or `exit_route` part carries `check: {kind: "grader", spec, plot, floor_y,
+center}`, the shape of a live `grader` part: the bench's spec on this trial's plot, for an agent that keeps its own
+copy of that grader. `exit_route` reads the trial's frames and position track, so such an agent keeps its own record
+of where it walked.
 
 ### 4.2 `options`
 
