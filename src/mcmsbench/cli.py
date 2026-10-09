@@ -8,6 +8,7 @@
   mcmsbench compare DIRS [--out FILE] [--summarize] [--open]              one HTML page across runs
   mcmsbench render DIRS                                                   re-render frames and reports from records
   mcmsbench world prepare --seed N | mcmsbench world list                 survival worlds
+  mcmsbench probe slice|top --x A [B] --z C [D] --y LO HI [--dimension D]  an arena's blocks as text (read-only, RCON)
 """
 from __future__ import annotations
 
@@ -246,8 +247,46 @@ def cmd_world(argv: list[str]) -> int:
     return 0
 
 
+def cmd_probe(argv: list[str]) -> int:
+    from .probe import legend, loaded, slice_view, top_view
+    from .rcon import Rcon
+    p = argparse.ArgumentParser(prog="mcmsbench probe", description="an arena's blocks as text, read over RCON (nothing changed)")
+    p.add_argument("view", choices=["slice", "top"], help="slice: a side view along one line; top: the ground from above")
+    p.add_argument("--x", type=int, nargs="+", required=True, help="one value, or a range A B")
+    p.add_argument("--z", type=int, nargs="+", required=True, help="one value, or a range C D")
+    p.add_argument("--y", type=int, nargs=2, required=True, metavar=("LO", "HI"))
+    p.add_argument("--dimension", default="overworld", help="overworld, the_nether or the_end")
+    p.add_argument("--flat", action="store_true", help="the flat arena, not the survival one")
+    p.add_argument("--slot", help="the survival arena of [slots.NAME]")
+    p.add_argument("--load", action="store_true", help="force-load chunks not loaded (between trials only), let go after")
+    a = p.parse_args(argv)
+    s = config.load(slot=a.slot)
+    host, port, pw = (s.arena.host, s.arena.rcon_port, s.arena.rcon_password) if a.flat else \
+        (s.survival.host, s.survival.rcon_port, s.survival.rcon_password)
+    rng = lambda v: (v[0], v[1]) if len(v) > 1 else v[0]      # noqa: E731
+    x, z = rng(a.x), rng(a.z)
+    if a.view == "top" and not (isinstance(x, tuple) and isinstance(z, tuple)):
+        p.error("top takes a range for both --x and --z")
+    cells = (abs(a.y[1] - a.y[0]) + 1) * (abs(x[1] - x[0]) + 1 if isinstance(x, tuple) else 1) * (abs(z[1] - z[0]) + 1 if isinstance(z, tuple) else 1)
+    if cells > 200_000:
+        p.error(f"{cells} cells is too many for one probe (200000 at most)")
+    with Rcon(host, port, pw) as r:
+        xs = x if isinstance(x, tuple) else (x, x)
+        zs = z if isinstance(z, tuple) else (z, z)
+        with loaded(r.command, a.dimension, xs[0], zs[0], xs[1], zs[1]) if a.load else _nothing():
+            view = slice_view if a.view == "slice" else top_view
+            print(view(r.command, a.dimension, x=x, z=z, y=(a.y[0], a.y[1])))
+    print(legend())
+    return 0
+
+
+def _nothing():
+    import contextlib
+    return contextlib.nullcontext(0)
+
+
 COMMANDS = {"run": cmd_run, "agents": cmd_agents, "tasks": cmd_tasks, "goal": cmd_goal, "check-agent": cmd_check_agent,
-            "compare": cmd_compare, "render": cmd_render, "world": cmd_world}
+            "compare": cmd_compare, "render": cmd_render, "world": cmd_world, "probe": cmd_probe}
 
 
 def main(argv: list[str] | None = None) -> int:
