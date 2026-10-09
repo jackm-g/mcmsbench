@@ -1,8 +1,8 @@
 """The observer client: a spectator mineflayer bot in a Node child process (observer.js), spoken to in JSON lines.
 
-It is the bench's only Minecraft client. It reads blocks (the ground-truth snapshots every grade starts from) and a
-column's top (where a start on terrain lands); it never touches the world. Everything else the bench knows about the
-player comes from the server over RCON.
+It is the bench's eyes. It reads blocks (the ground-truth snapshots every grade starts from) and a column's top (where
+a start on terrain lands); it never touches the world. Everything else the bench knows about the player comes from the
+server over RCON. (The bench's other clients, a task's scripted players, speak the same JSON lines: players/.)
 """
 from __future__ import annotations
 
@@ -22,12 +22,13 @@ class ObserverDead(RuntimeError):
 
 
 class ObserverClient:
-    def __init__(self, host: str, port: int, username: str, version: str, node: str | None = None):
+    def __init__(self, host: str, port: int, username: str, version: str, node: str | None = None,
+                 script: Path = SCRIPT):
         self.host, self.port, self.username, self.version = host, int(port), username, version
         node = node or shutil.which("node")
         if not node:
             raise SystemExit("node is not on PATH (the observer is a mineflayer client: `npm install` in the repo root)")
-        self._proc = subprocess.Popen([node, str(SCRIPT)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        self._proc = subprocess.Popen([node, str(script)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                       stderr=None, text=True, bufsize=1)
         self._ids = itertools.count(1)
         self._lock = threading.Lock()

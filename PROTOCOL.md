@@ -71,7 +71,7 @@ The agent must not expect to be op, and it never gets RCON.
   "check": { "kind": "all", "parts": [...], "uncovered": [...] },          // the grader's terms; null for none (§4.1)
   "movements": { "can_dig": true, "towers": true, "scaffolding": ["sand", "dirt"] },   // what the task allows
   "profile": {
-    "multiplayer": false, "longRun": false,
+    "multiplayer": false, "players": [], "longRun": false,      // other players the bench puts on the server (below)
     "spawnProtection": { "x": 154, "z": 163, "radius": 16 },    // or null: the server refuses digs/places inside it;
                                                                 //   round the world spawn, not always the plot's centre
     "border": { "x": 154, "z": 163, "radius": 48 },             // or null (flat plots)
@@ -93,6 +93,11 @@ The agent must not expect to be op, and it never gets RCON.
 `budget.ends`, when present, says the trial ends on the world's clock rather than on a pass: `{"at_dawn": 2}` ends it
 when day 3 begins (day 1 is the one it starts in). The bench counts dawns itself and stops you there (§6), so keep
 going until then: a `done` before it ends the run short of the task.
+
+`profile.multiplayer` is true when the task puts other people on the server, and `profile.players` names them. The
+bench plays them: they are ordinary players to your client, who talk in chat, may ask you for things there (the
+prompt need not say what), move about, and pick up what is thrown to them. Their chat and yours are the trial's record
+(`chat` in the trial record). Such a task usually sets `check` to null, since what is asked is only said in chat.
 
 Unknown keys may be added within protocol 1, so ignore keys you don't use. `mcmsbench goal --task ID` prints the goal
 file any task makes, with no server needed.

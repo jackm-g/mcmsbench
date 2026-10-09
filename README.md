@@ -16,7 +16,7 @@ No agent ships with the bench. You bring your own (see [Adding an agent](#adding
 
 | | |
 |---|---|
-| `tasks/*.yaml` | 64 tasks: building, survival nights, combat, mining, redstone, rails, the Nether, farming, escapes |
+| `tasks/*.yaml` | 66 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat |
 | `profiles/*.yaml` | defaults a task inherits (`prod`: a hard, snowy server with spawn protection; `farmstead`) |
 | `infra/docker-compose.yml` | the arenas: a superflat server, and survival servers restored from `infra/worlds/<seed>.tar` |
 | `src/mcmsbench/` | the runner, the protocol, the observer, the graders, reports and the compare page |
@@ -33,6 +33,7 @@ npm install                                # the observer and stand-in clients
 cp .env.example .env                       # RCON_PASSWORD (matching infra/docker-compose.yml), MCMSBENCH_AGENT_PATH
 docker compose -f infra/docker-compose.yml up -d arena          # the flat arena
 mcmsbench world prepare --seed 1           # once per seed: the survival world snapshot (needs arena-survival)
+mcmsbench world prepare --seed 2           # helping_pat's and nether_highway's world
 ```
 
 | service | world | game / RCON port | who starts it |
@@ -40,6 +41,7 @@ mcmsbench world prepare --seed 1           # once per seed: the survival world s
 | `arena` | superflat, 26.1.2 | 25565 / 25575 | you, once |
 | `arena-survival` | seeded terrain | 25567 / 25577 | the runner: it restores the world and restarts the server before every trial |
 | `arena-survival-2` | seeded terrain | 25568 / 25578 | the runner, with `--slot 2`, for a run alongside another |
+| `arena-survival-3` | seeded terrain | 25569 / 25579 | the runner, with `--slot 3`, for a run beside two others |
 
 The arenas are disposable. Never point `mcmsbench.toml` at a server you care about: resets run `/fill` over the plots
 and delete the survival world.
@@ -78,11 +80,13 @@ mcmsbench world prepare --seed N | mcmsbench world list                 survival
    restarted.
 2. **Observe.** A spectator observer client snapshots the plot.
 3. **Set up.** A stand-in client logs in as the trial's player. RCON places it at the start, gives it the task's
-   inventory and runs the task's setup. A second snapshot is taken, and that is the baseline.
+   inventory and runs the task's setup. A task's scripted players (`players:`, the other people on the server) log in
+   before the setup, each its own client, in adventure mode. A second snapshot is taken, and that is the baseline.
 4. **Hand off.** The stand-in logs out and the agent's command starts (PROTOCOL.md). While the agent works:
    - frames are taken on its subgoal events, and every 30 s;
-   - the player's position is sampled over RCON;
-   - the task's timed events fire;
+   - the player's position is sampled over RCON (with its dimension, for a grader that reads a Nether leg);
+   - the task's timed events fire, a scripted player's chat lines (`say:`) among them (with players, the events'
+     clock starts when the agent is on the server);
    - every block broken in the plot is logged;
    - the grader runs on the live world, and the agent is stopped once the task passes. Set
      `MCMSBENCH_LIVE_GRADE=0` to let agents play on to their own stop or the clock.

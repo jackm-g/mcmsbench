@@ -63,7 +63,23 @@ class Context:
     day: int | None = None                              # the day the trial ended in (1 = the one it started in, each dawn
                                                         # the bench saw starts the next); None: no day clock ran
     events: list = field(default_factory=list)          # [{at, t, run, out}]: the task's events that fired, t seconds
-                                                        # since the start (the bench's record: no player need be online)
+                                                        # since the start (the bench's record: no player need be online);
+                                                        # a scripted player's line is {at, t, say, as, out}
+    chat: list = field(default_factory=list)            # [{t, from, text}]: every chat line the task's scripted players
+                                                        # heard (theirs and the bot's), t seconds since the start
+    dims: list = field(default_factory=list)            # [(t, "minecraft:the_nether")]: each change of the bot's dimension,
+                                                        # read with the track (only for a grader that needs it: `leg`)
+
+    def dimension_at(self, t: float) -> str | None:
+        """The bot's dimension at track time t, from `dims` (None: not recorded)."""
+        if not self.dims:
+            return None
+        out = self.dims[0][1]
+        for t_d, d in self.dims:
+            if t_d > t:
+                break
+            out = d
+        return out
 
     def at_frame(self, f: Frame) -> "Context":
         """A context describing the world as of one frame."""
@@ -72,7 +88,9 @@ class Context:
                        f.position, f.inventory, [], f.stats, self.health, self.world_time, self.center,
                        self.after_states, self.rcon, self.fmt, self.track, self.seconds, self.refusals, self.respawn,
                        self.setup, self.start, self.broke, f.food, self.herd, f.equipment, f.containers, self.day,
-                       [e for e in self.events if f.t is None or e.get("t", 0) <= f.t])
+                       [e for e in self.events if f.t is None or e.get("t", 0) <= f.t],
+                       [m for m in self.chat if f.t is None or m.get("t", 0) <= f.t],
+                       [d for d in self.dims if f.t is None or d[0] <= f.t])
 
     def at_position(self, pos: XYZ) -> "Context":
         """The final world with the bot at a sampled position (for position checks against the track)."""
@@ -713,7 +731,7 @@ def level_site(ctx: Context, spec: dict) -> Result:
 
 
 LIVE_KINDS = {"functional", "entity_inside", "respawn", "hydrated", "herd", "day", "container"}   # graded against the server's final state: evaluated once, at the end
-TRAJECTORY_KINDS = {"exit_route", "intact"}   # read the whole trial (frames, track, what broke): evaluated once, on the full context
+TRAJECTORY_KINDS = {"exit_route", "intact", "leg"}   # read the whole trial (frames, track, what broke): evaluated once, on the full context
 
 
 @grader("milestones")
@@ -768,7 +786,11 @@ def milestones(ctx: Context, spec: dict) -> Result:
                 hit_t = f.t
                 break
         if hit is None and check.get("kind") == "position" and ctx.track:
+            # a sample in another dimension is not here, whatever its numbers (a Nether x, z is an eighth of one)
+            dim = _dimension_id(check.get("dimension", "overworld"))
             for t, x, y, z in ctx.track:
+                if ctx.dims and ctx.dimension_at(t) != dim:
+                    continue
                 if grade(check, ctx.at_position((x, y, z))).passed:
                     hit, hit_t = 0, t          # step 0: seen on the track, between steps
                     break
@@ -859,11 +881,90 @@ def event(ctx: Context, spec: dict) -> Result:
     """One of the task's `events` fired: {run: "tag {bot} add set_out"} (templated like the task's events), matched
     against the bench's record of what fired. Events wait in turn, so a later one firing says the ones before it did.
     Read from the record, not the server: the player is offline by the time the trial is graded, and a tag the event
-    put on it cannot be asked about then."""
+    put on it cannot be asked about then. {say: "there you are"} instead matches a scripted player's line by what it
+    starts with: the line a gated event says once the bot has done what was asked."""
+    if "say" in spec:
+        say = ctx.fmt(spec["say"]) if ctx.fmt else spec["say"]
+        hit = next((e for e in ctx.events if str(e.get("say", "")).startswith(say)), None)
+        return Result(hit is not None, 1.0 if hit else 0.0, {"said": hit is not None},
+                      {"say": say, "t": hit.get("t") if hit else None})
     run = ctx.fmt(spec["run"]) if ctx.fmt else spec["run"]
     hit = next((e for e in ctx.events if e.get("run") == run), None)
     return Result(hit is not None, 1.0 if hit else 0.0, {"fired": hit is not None},
                   {"run": run, "t": hit.get("t") if hit else None})
+
+
+@grader("chat")
+def chat(ctx: Context, spec: dict) -> Result:
+    """Someone said something in chat, from the record the task's scripted players heard: `from` (default "{bot}",
+    templated) said at least `min` (default 1) lines, those matching `match` (a regex, case-insensitive) when given,
+    and only those after a scripted player's line starting with `after` (its first time) when given: the bot answered
+    what it was asked."""
+    import re as _re
+    fmt = ctx.fmt or (lambda text: text)
+    who = fmt(str(spec.get("from", "{bot}")))
+    since = None
+    if spec.get("after"):
+        first = next((m for m in ctx.chat if str(m.get("text", "")).startswith(fmt(str(spec["after"])))), None)
+        since = first.get("t") if first else None
+    lines = [m for m in ctx.chat if m.get("from") == who and (not spec.get("after") or (since is not None and m.get("t", 0) >= since))
+             and (not spec.get("match") or _re.search(str(spec["match"]), str(m.get("text", "")), _re.I))]
+    need = int(spec.get("min", 1))
+    ok = len(lines) >= need
+    return Result(ok, min(1.0, len(lines) / need) if need else 1.0, {"said": ok},
+                  {"from": who, "lines": len(lines), "need": need, "said": [m.get("text") for m in lines[:5]],
+                   **({"after": since} if spec.get("after") else {})})
+
+
+def _dimension_id(d: str) -> str:
+    return d if ":" in d else f"minecraft:{d}"
+
+
+@grader("leg")
+def leg(ctx: Context, spec: dict) -> Result:
+    """A leg of the trip in one dimension, from the position track and the dimension it was in at each sample (the
+    tracker records both for a task with this grader). A leg is a run of samples in `dimension` (default the_nether):
+    it begins where the bot was first seen there (the portal it came through) and ends where it was last seen before a
+    sample in another dimension (the portal it left by; still there at the end: no end). Passes when some leg went at
+    least `min_travel` blocks (xz) from its beginning, and, with `exit_near: "x z"` (templated, in that dimension's
+    coordinates), left within `tolerance` (default 16) of that point. Sampled every 2 s, so a leg's ends lie a few
+    blocks from its portals."""
+    dim = _dimension_id(str(spec.get("dimension", "the_nether")))
+    need = float(spec.get("min_travel", 0))
+    near = None
+    if spec.get("exit_near"):
+        near = tuple(float(v) for v in (ctx.fmt(str(spec["exit_near"])) if ctx.fmt else str(spec["exit_near"])).split())
+    tol = float(spec.get("tolerance", 16))
+    if not ctx.dims:
+        return Result(False, 0.0, {"tracked": False}, {"reason": "no dimension record (the tracker reads it for `leg`)"})
+    legs: list[dict] = []
+    cur: list = []
+    for t, x, y, z in list(ctx.track) + [(float("inf"), 0, 0, 0)]:
+        here = t != float("inf") and ctx.dimension_at(t) == dim
+        if here:
+            cur.append((t, x, y, z))
+            continue
+        if cur:
+            x0, z0 = cur[0][1], cur[0][3]
+            travel = max(math.hypot(px - x0, pz - z0) for _, px, _, pz in cur)
+            left = cur[-1] if t != float("inf") else None
+            legs.append({"from": [cur[0][1], cur[0][2], cur[0][3]], "t": cur[0][0], "travel": round(travel, 1),
+                         "left_at": [left[1], left[2], left[3]] if left else None,
+                         "exit_off": round(math.hypot(left[1] - near[0], left[3] - near[1]), 1) if left and near else None})
+            cur = []
+
+    def ok(lg: dict) -> tuple[bool, bool]:
+        far = lg["travel"] >= need
+        out = near is None or (lg["exit_off"] is not None and lg["exit_off"] <= tol)
+        return far, out
+    best = max(legs, key=lambda lg: (sum(ok(lg)), lg["travel"]), default=None)
+    far, out = ok(best) if best else (False, False)
+    checks = {"travelled": far, **({"exit_near": out} if near is not None else {})}
+    score = (min(1.0, best["travel"] / need) if best and need else float(far)) if near is None \
+        else ((min(1.0, best["travel"] / need) if best and need else float(far)) + float(out)) / 2
+    return Result(far and out, score, checks,
+                  {"dimension": dim, "need": need, "exit_near": list(near) if near else None, "tolerance": tol,
+                   "legs": legs[:8]})
 
 
 @grader("survived")

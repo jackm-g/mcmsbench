@@ -70,6 +70,8 @@ UNCOVERED = {
              "door in the wall between them",
     "windows": "glass windows in each floor's outer walls, read from the finished house: {per_story} (floor: windows)",
     "event": "a moment the bench watched for during the trial",
+    "chat": "what you said in chat during the trial, as the other players on the server heard it",
+    "leg": "the part of your trip spent in {dimension}, from the position track: how far it went from where you came in",
     "entity_inside": "where the {entity} stands, from the server",
     "dug": "blocks dug ({block}), from the whole trial's world diff",
     "guard": "the live guard's refusals over the trial",

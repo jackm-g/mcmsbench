@@ -85,6 +85,25 @@ services:
     volumes:
       - ./data-survival-2:/data
 
+  # A third, `--slot 3`.
+  arena-survival-3:
+    <<: *arena
+    container_name: mcmsbench-arena-survival-3
+    environment:
+      <<: *arena-env
+      VERSION: "26.1.2"
+      LEVEL_TYPE: minecraft:normal
+      GENERATOR_SETTINGS: ""
+      SEED: ${SURVIVAL_SEED:-1}
+      SPAWN_PROTECTION: ${SURVIVAL_SPAWN_PROTECTION:-0}
+      VIEW_DISTANCE: 6
+      MAX_WORLD_SIZE: 29999984
+    ports:
+      - "25569:25565"
+      - "25579:25575"
+    volumes:
+      - ./data-survival-3:/data
+
   arena-1214:
     <<: *arena
     container_name: mcmsbench-arena-1214

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import yaml
 
@@ -39,6 +40,12 @@ class WorldSpec:
         return d if ":" in d else f"minecraft:{d}"
 
 
+class Say(NamedTuple):
+    """An event that is a scripted player's chat line, not an RCON command: `{at: 5, say: "hi", as: Pat}`."""
+    player: str
+    text: str
+
+
 @dataclass
 class Task:
     id: str
@@ -62,7 +69,12 @@ class Task:
     guard: bool = False                              # run with the live guard on (work radius, natural-only digging, refusals counted)
     memories: list[dict] = field(default_factory=list)   # journal entries the bot starts with: [{text, at: [x,y,z] | "{ax} {ay} {az}"}]
     events: list[dict] = field(default_factory=list)     # timed RCON commands during the trial: [{at: seconds, run: "kill {bot}"}];
-                                                         # `run` may be a list, `when` an RCON test that holds it (and all after it)
+                                                         # `run` may be a list, `when` an RCON test that holds it (and all after it),
+                                                         # or a list whose last command is the test; `say` (with `as`) is a
+                                                         # scripted player's chat line, said before the event's `run`; with
+                                                         # `players`, `at` counts from when the agent is on the server
+    players: list[dict] = field(default_factory=list)    # scripted players the bench logs in alongside the bot: [{name: Pat,
+                                                         # at: "x y z" (templated), gamemode: adventure}] (players/)
     check: dict | bool | None = None             # the task's own check, as a live milestone carries one (checks.py shape);
                                                  # None: what the grader implies (from_grader); False: no task check (a
                                                  # grader on something the task does not ask for)
@@ -86,6 +98,8 @@ class Task:
                                                         # their chunks force-loaded however far they run
     load_area: str | None = None      # "x0 z0 x1 z1" (templated): chunks kept loaded while setup runs, for a setup that
                                       # builds far outside the plot (an island 150 blocks off), tunnels' own boxes besides
+    load_nether: str | None = None    # the same in the Nether ("x0 z0 x1 z1", Nether coordinates): its chunks generated and
+                                      # kept loaded while setup runs, for a setup that builds there (a portal's far side)
     herd_watch: dict | None = None    # {types: [cow, chicken], grow: 4, poll: 2}: the runner's HerdWatcher tags the babies of
                                       # those kinds, counts the ones the bot kills (the `herd` grader's max_baby_kills) and
                                       # ages them `grow` times as fast (a calf is 20 real minutes otherwise); `strays: true`
@@ -130,13 +144,16 @@ class Task:
         return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
 
     def render_events(self, plot: Plot, start: tuple[int, int, int] | None = None,
-                      bot: str = "player") -> list[tuple[float, str] | tuple[float, str, str]]:
+                      bot: str = "player") -> list[tuple[float, str | Say] | tuple[float, str | Say, str | tuple]]:
         """Timed events, templated like setup: [(seconds after the bot is placed, command)], in time order.
         A death mid-task, a mob summoned once the work has started, a change of weather: what a live
         server does to the bot without asking. `run` may be a list (its commands fire together, in order).
         `when: "execute unless entity @e[tag=wave]"` makes it wait past `at` until that test passes, and as
         events fire in order, every event after it waits too: the next wave of a fight once the last is dead.
-        A gated event is (at, command, test); its list's other commands follow it ungated."""
+        `when` may be a list: its commands run in order and the last is the test (a count stored to a score, then
+        the score tested against a bound). A gated event is (at, command, test); its list's other commands follow
+        it ungated. `say: "..."` is a scripted player's chat line (`as`: which, when the task has more than one),
+        a Say in the command's place, said before the event's `run`."""
         dim = getattr(plot, "dimension", "minecraft:overworld")
         prefix = "" if dim == "minecraft:overworld" else f"execute in {dim} run "
         fmt = lambda text: prefix + self._fmt(str(text), plot, start).replace("{bot}", bot)   # noqa: E731
@@ -144,12 +161,38 @@ class Task:
         for e in self.events:
             at = float(e.get("at", 0))
             run = e.get("run")
-            if not run or at < 0:
-                raise ValueError(f"event needs `at` (seconds >= 0) and `run`: {e!r}")
-            for j, cmd in enumerate([run] if isinstance(run, str) else list(run)):
-                when = e.get("when") if j == 0 else None
-                out.append((at, fmt(cmd), fmt(when)) if when else (at, fmt(cmd)))
+            run = [] if run is None else [run] if isinstance(run, str) else list(run)
+            if (not run and not e.get("say")) or at < 0:
+                raise ValueError(f"event needs `at` (seconds >= 0) and `run` or `say`: {e!r}")
+            cmds: list[str | Say] = [fmt(c) for c in run]
+            if e.get("say"):
+                cmds.insert(0, Say(self._speaker(e), self._fmt(str(e["say"]), plot, start).replace("{bot}", bot)))
+            when = e.get("when")
+            if isinstance(when, list):
+                when = tuple(fmt(w) for w in when)
+            elif when:
+                when = fmt(when)
+            for j, cmd in enumerate(cmds):
+                out.append((at, cmd, when) if when and j == 0 else (at, cmd))
         return sorted(out, key=lambda t: t[0])     # stable: a list's commands, and same-time events, keep their order
+
+    def _speaker(self, e: dict) -> str:
+        """Who says an event's `say`: its `as`, or the task's only scripted player."""
+        names = [str(p["name"]) for p in self.players]
+        who = e.get("as") or (names[0] if len(names) == 1 else None)
+        if who is None or str(who) not in names:
+            raise ValueError(f"event says something, but as whom? `as` must name one of the task's players {names}: {e!r}")
+        return str(who)
+
+    def render_players(self, plot: Plot, start: tuple[int, int, int] | None = None) -> list[tuple[str, tuple[int, int, int], str]]:
+        """The scripted players, templated: [(name, (x, y, z) where they stand at the start, game mode)]."""
+        out = []
+        for p in self.players:
+            at = tuple(int(v) for v in self._fmt(str(p["at"]), plot, start).split())
+            if len(at) != 3:
+                raise ValueError(f"player {p.get('name')!r}: `at` is three numbers, x y z: {p!r}")
+            out.append((str(p["name"]), at, str(p.get("gamemode", "adventure"))))
+        return out
 
     def _fmt(self, text: str, plot: Plot, start) -> str:
         """Plot/anchor/spawn/start placeholders, with simple arithmetic: {ax+20}, {az-1}."""
@@ -174,6 +217,13 @@ class Task:
             out += [(x, y, z) for x in range(min(x0, x1), max(x0, x1) + 1) for y in range(min(y0, y1), max(y0, y1) + 1)
                     for z in range(min(z0, z1), max(z0, z1) + 1)]
         return out
+
+    def render_load_nether(self, plot: Plot, start=None) -> tuple[int, int, int, int] | None:
+        """`load_nether`, templated, as (x0, z0, x1, z1); None when the task has none."""
+        if not self.load_nether:
+            return None
+        v = [int(n) for n in self._fmt(str(self.load_nether), plot, start).split()]
+        return (min(v[0], v[2]), min(v[1], v[3]), max(v[0], v[2]), max(v[1], v[3]))
 
     def render_memories(self, plot: Plot, start=None) -> list[tuple[str, tuple[int, int, int] | None]]:
         """Seed notes for the journal, templated: [(text, (x, y, z) | None)]."""

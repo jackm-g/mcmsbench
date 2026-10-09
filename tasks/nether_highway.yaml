@@ -1,0 +1,93 @@
+# The Nether as a shortcut: a delivery to a base about 800 blocks west, by a lit portal at home, about 100 blocks
+# across real Nether terrain, a portal built at the right spot on the far side (x/8, z/8 of the base), and out by the
+# base's own portal. It measures what the other Nether tasks (a netherrack room on the flat arena) and the long
+# overworld trips (250 blocks at most) do not: the Nether's own ground, a portal placed by its coordinates, and a
+# trip of 800 blocks.
+#
+# Seed 2 (spawn -1 63 5, {nx} {nz} = -1 0). Home: a lit portal 4 west of the spawn on the river bank. The Nether
+# side: a portal built where the home one links (nx..nx+3, z nz+1) on a netherrack pad at y 52, the ledge the
+# generated Nether has there. From it the generated Nether runs west, by a descent to a lava-shore lowland at y 35-39,
+# walkable to about x -80; beyond, a cliff of about 15 up to a shelf at y 54-55 round x -100 (a climb, a pillar or a
+# dig: the survey of 2026-10-09 found no walk onto it), and a plateau at y 70 behind. The base's portal at (-812, 77,
+# 0..1) is the overworld side of Nether (-101.5, 0): a portal built within 16 of that (the Nether's search radius for
+# an overworld portal is 128, an eighth of which is 16) comes out beside the base; one built farther off makes the
+# game build its own somewhere near the eighth-scaled point, and the bot walks the rest.
+#
+# The far base: a yard levelled on the ridge between two lakes round (-808, 77, 0), a 7x7 oak hut with its door west,
+# a bed and an empty chest beside it inside, the lit portal 6 west of the door. Its chunks and the Nether pad's are
+# generated and loaded for setup (`load_area`, `load_nether`): the restored world holds neither. The overworld border
+# is 2000 across, round the spawn; the Nether's is its own (26.x keeps one per dimension) and unbounded.
+#
+# Graded from the server: the iron in the base's chest (the container read force-loads its chunk), a Nether leg of
+# at least 80 blocks from where the bot came in (the position track, with the dimension of each sample: walking the
+# 800 blocks overworld is the trip this task is not), the bot alive. Not required: where it left the Nether (within 16
+# of the base's eighth-scaled point), and arriving at the base on the track.
+prompt: >-
+  My other base is way out west, at about x {sx-807}, z {sz-5}, on a hill between two lakes. That's around 800 blocks, too far
+  to walk, so go through the Nether: the portal by the river here is lit. Take the 24 iron ingots you're carrying to
+  the chest by the bed in that base. You'll need to build a portal in the Nether to come back out near it: you have
+  obsidian and a flint and steel, and the base has a lit portal of its own, so a portal in the right spot in the
+  Nether comes out right beside it. Wear the gold helmet over there so the piglins leave you alone.
+inventory: {iron_ingot: 24, obsidian: 14, flint_and_steel: 1, iron_pickaxe: 1, iron_sword: 1, golden_helmet: 1,
+            cobblestone: 64, bread: 16}
+world: {type: survival, seeds: [2], border: 2000, difficulty: normal, daylight: false}
+start: {time: 6000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [cobblestone, netherrack, dirt]}
+load_area: "{sx-819} {sz-15} {sx-795} {sz+5}"         # the far base
+load_nether: "{nx-3} {nz-2} {nx+4} {nz+3}"             # the Nether side of the home portal
+setup:
+  # home: the river bank west of the spawn cleared, a lit portal (axis x) facing the spawn
+  - "fill {sx-8} {sy} {sz+1} {sx-1} {sy+6} {sz+4} minecraft:air"
+  - "fill {sx-8} {sy-3} {sz+1} {sx-1} {sy-2} {sz+4} minecraft:dirt"
+  - "fill {sx-8} {sy-1} {sz+1} {sx-1} {sy-1} {sz+4} minecraft:grass_block"
+  - "fill {sx-6} {sy-1} {sz+2} {sx-3} {sy+3} {sz+2} minecraft:obsidian"
+  - "fill {sx-5} {sy} {sz+2} {sx-4} {sy+2} {sz+2} minecraft:nether_portal[axis=x]"
+  # the Nether side: a netherrack pad at y 52, clear 5 above, and the portal the home one links to
+  - "execute in minecraft:the_nether run fill {nx-3} 52 {nz-2} {nx+4} 52 {nz+3} minecraft:netherrack"
+  - "execute in minecraft:the_nether run fill {nx-3} 53 {nz-2} {nx+4} 57 {nz+3} minecraft:air"
+  - "execute in minecraft:the_nether run fill {nx} 52 {nz+1} {nx+3} 56 {nz+1} minecraft:obsidian"
+  - "execute in minecraft:the_nether run fill {nx+1} 53 {nz+1} {nx+2} 55 {nz+1} minecraft:nether_portal[axis=x]"
+  # the far base: the yard on the ridge (ground at y 76), clear 13 up
+  - "fill {sx-819} {sy+14} {sz-15} {sx-795} {sy+26} {sz+5} minecraft:air"
+  - "fill {sx-819} {sy+9} {sz-15} {sx-795} {sy+12} {sz+5} minecraft:dirt"
+  - "fill {sx-819} {sy+13} {sz-15} {sx-795} {sy+13} {sz+5} minecraft:grass_block"
+  # the hut: oak planks 7x7 outside, a floor and a flat roof, the door in the middle of the west wall
+  - "fill {sx-805} {sy+13} {sz-8} {sx-799} {sy+18} {sz-2} minecraft:oak_planks hollow"
+  - "setblock {sx-805} {sy+14} {sz-5} minecraft:oak_door[facing=west,half=lower]"
+  - "setblock {sx-805} {sy+15} {sz-5} minecraft:oak_door[facing=west,half=upper]"
+  - "setblock {sx-802} {sy+16} {sz-8} minecraft:glass"
+  - "setblock {sx-802} {sy+16} {sz-2} minecraft:glass"
+  - "setblock {sx-804} {sy+16} {sz-6} minecraft:wall_torch[facing=east]"
+  # inside: the bed along the north wall, the chest beside it (empty), a crafting table
+  - "setblock {sx-802} {sy+14} {sz-7} minecraft:white_bed[facing=west,part=head]"
+  - "setblock {sx-801} {sy+14} {sz-7} minecraft:white_bed[facing=west,part=foot]"
+  - "setblock {sx-800} {sy+14} {sz-7} minecraft:chest[facing=south]"
+  - "setblock {sx-800} {sy+14} {sz-3} minecraft:crafting_table"
+  # the base's portal: lit, axis z, 6 west of the door
+  - "fill {sx-811} {sy+13} {sz-6} {sx-811} {sy+17} {sz-3} minecraft:obsidian"
+  - "fill {sx-811} {sy+14} {sz-5} {sx-811} {sy+16} {sz-4} minecraft:nether_portal[axis=z]"
+stats: [deaths, damage_taken, "dimension:the_nether", "dimension:overworld"]
+grader:
+  kind: milestones
+  required: [nether_leg, delivered, alive]
+  steps:
+    - {name: in_nether, weight: 1, check: {kind: stat, name: "dimension:the_nether", min: 1}}
+    - name: nether_leg
+      weight: 3
+      says: "at least 80 blocks across the Nether from where you came in"
+      check: {kind: leg, dimension: the_nether, min_travel: 80}
+    - name: exit_near
+      weight: 2
+      says: "you left the Nether within 16 blocks of the base's point there (its x and z divided by 8)"
+      check: {kind: leg, dimension: the_nether, exit_near: "{nx-100} {nz}", tolerance: 16}
+    - {name: arrived, weight: 1, check: {kind: position, target_rel: [-807, 14, -5], tolerance: 16, y_tolerance: 10}}
+    - name: delivered
+      weight: 4
+      says: "the chest by the bed in the far base holds the 24 iron ingots"
+      check: {kind: container, at: "{sx-800} {sy+14} {sz-7}", items: {iron_ingot: 24}}
+    - {name: alive, weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solution yet: validated by the unit tests and a smoke run that drives it over RCON
+max_turns: 40
+max_seconds: 1800
+exec_timeout: 300
+tags: [tier-d, nether, survival, navigation, long_travel, portal, containers]

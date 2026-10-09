@@ -29,13 +29,14 @@ from .events import EventLog, git_sha
 from .goalspec import check_agreement, from_grader
 from .graders import Context, Frame, built, grade
 from .observer import ObserverClient, ObserverDead
+from .players import ScriptedPlayers
 from .protocol import PROTOCOL_VERSION, Agent, TrialContext
 from .rcon import Rcon
 from .render import render_iso, render_topdown, timelapse
 from .render.report import run_index, trial_report
 from .start import resolve_start, situation_commands
 from .stats import Stats
-from .tasks import Task, load, load_all, with_profile
+from .tasks import Say, Task, load, load_all, with_profile
 from .world.volume import Snapshot, diff, snapshot_to_json
 
 
@@ -204,12 +205,15 @@ def stops_on_pass(task: Task) -> bool:
 class PositionTracker:
     """Samples the player's server-side position every `every` seconds on its own RCON connection, for the whole
     trial: milestones a step passes through (a waypoint on a patrol) and the distance travelled no longer depend on
-    where frames fall."""
+    where frames fall. With `dimensions`, each sample's dimension is read too, and `dims` keeps each change of it,
+    [(t, "minecraft:the_nether")]: a Nether x, z is not an overworld one (the `leg` grader reads them together)."""
 
-    def __init__(self, host: str, port: int, password: str, player: str, t0: float, every: float = 2.0):
+    def __init__(self, host: str, port: int, password: str, player: str, t0: float, every: float = 2.0,
+                 dimensions: bool = False):
         self.rcon = Rcon(host, port, password).connect()
         self.player, self.t0, self.every = player, t0, every
         self.track: list[tuple[float, float, float, float]] = []
+        self.dims: list[tuple[float, str]] | None = [] if dimensions else None
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -220,7 +224,12 @@ class PositionTracker:
                 out = self.rcon(f"data get entity {self.player} Pos")
                 m = re.search(r"\[(-?[\d.]+)d, (-?[\d.]+)d, (-?[\d.]+)d\]", out)
                 if m:
-                    self.track.append((round(time.time() - self.t0, 1), *(round(float(v), 1) for v in m.groups())))
+                    t = round(time.time() - self.t0, 1)
+                    if self.dims is not None:
+                        d = re.search(r'"(minecraft:[a-z_]+)"', self.rcon(f"data get entity {self.player} Dimension"))
+                        if d and (not self.dims or self.dims[-1][1] != d.group(1)):
+                            self.dims.append((t, d.group(1)))
+                    self.track.append((t, *(round(float(v), 1) for v in m.groups())))
             except Exception:  # noqa: BLE001 — a missed sample is fine (the player is between clients, say)
                 pass
 
@@ -235,13 +244,22 @@ class PositionTracker:
 class EventRunner:
     """Runs a task's timed `events` (RCON commands at t0 + seconds) on its own connection while the agent works, and
     records what each returned. An event with a test (at, cmd, when) waits past its time, trying the test every POLL
-    seconds, until it passes; the events after it wait with it. `stop()` cancels what has not fired yet."""
+    seconds, until it passes; the events after it wait with it. A test that is a tuple runs its commands in order and
+    tests the last. A Say in the command's place is a scripted player's chat line, said through `speak(player, text)`.
+    With `listener` (the bot's name) and `handed` (set once the stand-in has logged out), the clock starts when the
+    agent is on the server instead (`joined`, seconds after t0): what the task's players say is never said to no one,
+    however long an agent takes to start. `stop()` cancels what has not fired yet."""
 
     POLL = 1.0
 
-    def __init__(self, host: str, port: int, password: str, events: list[tuple], t0: float, rcon=None):
+    def __init__(self, host: str, port: int, password: str, events: list[tuple], t0: float, rcon=None,
+                 speak: Callable[[str, str], str] | None = None, listener: str | None = None,
+                 handed: threading.Event | None = None):
         self.events = sorted(events, key=lambda e: e[0])
         self.t0 = t0
+        self.speak = speak
+        self.listener, self.handed = listener, handed
+        self.joined: float | None = None
         self.fired: list[dict] = []
         self.own = rcon is None
         self.rcon = rcon if rcon is not None else Rcon(host, port, password).connect()
@@ -250,8 +268,16 @@ class EventRunner:
         self._thread.start()
 
     def _run(self) -> None:
+        base = self.t0
+        if self.listener:
+            while not (self.handed is None or self.handed.is_set()) or not self._online(self.listener):
+                if self._stop.wait(self.POLL):
+                    return
+            base = time.time()
+            self.joined = round(base - self.t0, 1)
+            print(f"[event] {self.listener} is on the server (t+{self.joined:.0f}s): the events' clock starts")
         for at, cmd, *when in self.events:
-            wait = self.t0 + at - time.time()
+            wait = base + at - time.time()
             if wait > 0 and self._stop.wait(wait):
                 return
             if self._stop.is_set():
@@ -259,16 +285,31 @@ class EventRunner:
             while when and not self._passes(when[0]):
                 if self._stop.wait(self.POLL):
                     return
+            said = isinstance(cmd, Say)
             try:
-                out = self.rcon(cmd)
+                if said:
+                    out = self.speak(cmd.player, cmd.text) if self.speak else "error: no scripted players to speak"
+                else:
+                    out = self.rcon(cmd)
             except Exception as e:  # noqa: BLE001 — a failed event is recorded, never a crashed trial
                 out = f"error: {type(e).__name__}: {e}"
-            self.fired.append({"at": at, "t": round(time.time() - self.t0, 1), "run": cmd, "out": out[:200]})
-            print(f"[event t+{at:.0f}s] {cmd} -> {out[:80]}")
+            what = {"say": cmd.text, "as": cmd.player} if said else {"run": cmd}
+            self.fired.append({"at": at, "t": round(time.time() - self.t0, 1), **what, "out": out[:200]})
+            print(f"[event t+{at:.0f}s] {f'<{cmd.player}> {cmd.text}' if said else cmd} -> {out[:80]}")
 
-    def _passes(self, test: str) -> bool:
+    def _online(self, name: str) -> bool:
         try:
-            return "passed" in self.rcon(test).lower()     # "Test passed" / "Test failed"
+            out = self.rcon("list")             # "There are 2 of a max of 8 players online: Pat, player"
+        except Exception:  # noqa: BLE001
+            return False
+        return name in [n.strip() for n in out.partition(":")[2].split(",")]
+
+    def _passes(self, test: str | tuple) -> bool:
+        try:
+            *first, last = (test,) if isinstance(test, str) else test
+            for cmd in first:
+                self.rcon(cmd)
+            return "passed" in self.rcon(last).lower()     # "Test passed" / "Test failed"
         except Exception:  # noqa: BLE001 — a test that cannot be asked holds the event
             return False
 
@@ -487,35 +528,40 @@ TUNNEL_MARGIN = 16     # blocks round a task's tunnels kept loaded for setup: th
 
 
 @contextlib.contextmanager
-def area_loaded(rcon, box: tuple[int, int, int, int] | None, plot: Plot, timeout: float = 60.0, log=print):
+def area_loaded(rcon, box: tuple[int, int, int, int] | None, plot: Plot, timeout: float = 60.0, log=print,
+                dimension: str = "minecraft:overworld"):
     """The chunks over `box` (x0, z0, x1, z1, grown by TUNNEL_MARGIN) force-loaded, and generated, while the block
     runs: a setup that fills and summons 200 blocks from the bot gets "position is not loaded" otherwise. Let go
-    after, and the plot's own force-load (Arena.reset's) put back over any chunk the two shared. No box: nothing."""
+    after, and the plot's own force-load (Arena.reset's) put back over any chunk the two shared. No box: nothing.
+    `dimension`: the box is in that dimension (the Nether side of a portal, which a restored world has never held)."""
     if box is None:
         yield
         return
     from .survival import chunk_blocks
+    inn = "" if dimension == "minecraft:overworld" else f"execute in {dimension} run "
     cx0, cz0 = (box[0] - TUNNEL_MARGIN) >> 4, (box[1] - TUNNEL_MARGIN) >> 4
     cx1, cz1 = (box[2] + TUNNEL_MARGIN) >> 4, (box[3] + TUNNEL_MARGIN) >> 4
     loads = list(chunk_blocks(cx0, cz0, cx1, cz1))
     for a, b, c, d in loads:
-        rcon(f"forceload add {a * 16} {b * 16} {c * 16 + 15} {d * 16 + 15}")
+        rcon(f"{inn}forceload add {a * 16} {b * 16} {c * 16 + 15} {d * 16 + 15}")
     pending = [(cx, cz) for cx in range(cx0, cx1 + 1) for cz in range(cz0, cz1 + 1)]
+    test = "execute if loaded" if not inn else f"execute in {dimension} if loaded"
     deadline = time.time() + timeout
     while pending:                       # a chunk the golden world never held generates first
-        pending = [(cx, cz) for cx, cz in pending if "passed" not in rcon(f"execute if loaded {cx * 16} 0 {cz * 16}")]
+        pending = [(cx, cz) for cx, cz in pending if "passed" not in rcon(f"{test} {cx * 16} 0 {cz * 16}")]
         if not pending or time.time() > deadline:
             break
         time.sleep(1.0)
     if pending:
-        log(f"[setup] {len(pending)} of the tunnels' chunks still not loaded after {timeout:.0f}s")
+        log(f"[setup] {len(pending)} of the chunks to load ({dimension}) still not loaded after {timeout:.0f}s")
     try:
         yield
     finally:
         for a, b, c, d in loads:
-            rcon(f"forceload remove {a * 16} {b * 16} {c * 16 + 15} {d * 16 + 15}")
-        (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
-        rcon(f"forceload add {x0 - 16} {z0 - 16} {x1 + 16} {z1 + 16}")
+            rcon(f"{inn}forceload remove {a * 16} {b * 16} {c * 16 + 15} {d * 16 + 15}")
+        if not inn:
+            (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
+            rcon(f"forceload add {x0 - 16} {z0 - 16} {x1 + 16} {z1 + 16}")
 
 
 class far_surface:
@@ -592,7 +638,8 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
         "prompt": task.render(plot, start),
         "check": check if isinstance(check, dict) else None,
         "movements": dict(task.movements or {}),
-        "profile": {"multiplayer": False, "longRun": False, "spawnProtection": spawn_protection(task, plot, start),
+        "profile": {"multiplayer": bool(task.players), "players": [str(p["name"]) for p in task.players],
+                    "longRun": False, "spawnProtection": spawn_protection(task, plot, start),
                     "border": world_border(task, plot, s), "fastNights": fast_nights, "graderStops": grader_stops},
         "world": {"type": task.world.type, "seed": seed, "difficulty": task.world.difficulty,
                   "daylight": task.world.daylight, "dimension": task.world.dimension_id,
@@ -743,6 +790,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
     tracker: PositionTracker | None = None
     events: EventRunner | None = None
     herd: HerdWatcher | None = None
+    players: ScriptedPlayers | None = None
+    handed = threading.Event()              # the stand-in has logged out: the player is the agent's
     start_food = None
     day_clock = DayClock(arena.server_time, t0) if needs_day_clock(task) else None
 
@@ -755,10 +804,17 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         arena.prepare_player(a.bot_username, plot, task.inventory, gamemode=task.start.gamemode, spawn=start)
         stats.setup()
         start_food = arena.drain_food(a.bot_username, task.start.food) if task.start.food is not None else None
-        tracker = PositionTracker(a.host, a.rcon_port, a.rcon_password, a.bot_username, t0)
+        tracker = PositionTracker(a.host, a.rcon_port, a.rcon_password, a.bot_username, t0,
+                                  dimensions="leg" in grader_kinds(task.grader))
+        if task.players:        # the other people on the server, there before setup (which may give them things)
+            players = ScriptedPlayers(arena, a.host, a.port, s.arena.version, plot, task.render_players(plot, start),
+                                      t0, elog)
         tunnel_cmds, tunnel_box = task.render_tunnels(plot, start)
         far = task.render_load_area(plot, start, also=tunnel_box)
-        with area_loaded(arena.rcon, far, plot, log=print):    # tunnels, and what setup builds out of the plot's reach
+        nether = task.render_load_nether(plot, start)
+        with area_loaded(arena.rcon, far, plot, log=print), \
+                area_loaded(arena.rcon, nether, plot, log=print, dimension="minecraft:the_nether"):
+            # tunnels, and what setup builds out of the plot's reach (in the Nether too)
             for cmd in tunnel_cmds + task.render_setup(plot, start, a.bot_username):
                 out = arena.rcon(cmd)
                 elog.emit("setup", cmd=cmd[:300], out=out[:300])
@@ -773,7 +829,9 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         setup_placed = built(diff(before_setup, before))
         observer.client.watch_breaks(plot.volume.min, plot.volume.max)   # every block broken from here on, by anyone
         if task.events:
-            events = EventRunner(a.host, a.rcon_port, a.rcon_password, task.render_events(plot, start, a.bot_username), t0)
+            events = EventRunner(a.host, a.rcon_port, a.rcon_password, task.render_events(plot, start, a.bot_username), t0,
+                                 speak=players.say if players else None,
+                                 listener=a.bot_username if players else None, handed=handed)
         if herd_types:
             hw = task.herd_watch or {}
             herd = HerdWatcher(a.host, a.rcon_port, a.rcon_password, a.bot_username, herd_types,
@@ -799,12 +857,14 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                            states_now, arena.rcon,
                            lambda text: task._fmt(text, plot, start).replace("{bot}", a.bot_username),
                            track=list(tracker.track) if tracker else [], seconds=round(time.time() - t0, 1),
+                           dims=list(tracker.dims or []) if tracker else [],
                            refusals=list(refusals),
                            respawn=arena.server_respawn(a.bot_username) if grader_kinds(task.grader) & {"respawn"} else None,
                            setup=setup_placed, start=tuple(rec.start), broke=list(broke),
                            food=arena.server_food(a.bot_username), herd=dict(herd.tally) if herd else None,
                            equipment=arena.server_equipment(a.bot_username) if wears else None,
-                           day=day_clock.day if day_clock else None, events=list(events.fired) if events else [])
+                           day=day_clock.day if day_clock else None, events=list(events.fired) if events else [],
+                           chat=players.chat() if players else [])
 
         def goal_met() -> bool:
             # the grader itself on the world as it stands, read as the final capture reads it; never for a grader
@@ -827,12 +887,15 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
             if day_clock is not None:
                 day_clock.poll()            # the night the skip ends, seen before the clock jumps past it
             skipper()
+        def hand_off() -> None:
+            stand_in.logout()
+            handed.set()
         max_seconds = float(task.max_seconds or s.trial.max_seconds)
         max_cost = float(task.max_cost_usd or s.trial.max_cost_usd or 0.0)
         goal = build_goal(task, plot, start, s, trial, seed=seed if task.world.type == "survival" else None,
                           fast_nights=fast, grader_stops=live, max_seconds=max_seconds, max_cost=max_cost)
         ctx = TrialContext(task.id, goal, a.host, a.port, a.bot_username, s.arena.version, max_seconds, max_cost,
-                           out_dir / f"trial_{trial}", hand_off=stand_in.logout, take_back=stand_in.login,
+                           out_dir / f"trial_{trial}", hand_off=hand_off, take_back=stand_in.login,
                            progress=progress, after_step=after_step, goal_met=goal_met if live else None,
                            night_skip=night_skip if fast else None, on_event=on_event, log=elog,
                            dawns=day_clock.poll if day_clock else None,
@@ -851,7 +914,13 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
     finally:
         rec.seconds = round(time.time() - t0, 1)
         rec.trace["track"] = tracker.stop() if tracker else []
+        if tracker is not None and tracker.dims is not None:
+            rec.trace["dims"] = [list(d) for d in tracker.dims]
         rec.trace["events"] = events.stop() if events else []
+        if events is not None and events.listener:
+            rec.trace["events_clock"] = events.joined      # when the agent was on and the events' clock started
+        if players is not None:
+            rec.trace["chat"] = players.chat()
         if herd is not None:
             rec.trace["herd"] = herd.stop()
 
@@ -879,6 +948,9 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         rec.trace.setdefault("guard_refusals", [])
         drain_breaks()
         rec.trace["broke"] = [list(b) for b in broke]
+        if players is not None:
+            rec.trace["players"] = final("players", players.final) or {}
+            players.close()
         stand_in.logout()
 
     time.sleep(0.5)
@@ -901,9 +973,11 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                        rec.final_stats, rec.final_health, rec.final_time, plot.center(),
                        after_states, arena.rcon, lambda text: task._fmt(text, plot, start).replace("{bot}", a.bot_username),
                        track=rec.trace["track"], seconds=rec.seconds, refusals=rec.trace["guard_refusals"],
+                       dims=[tuple(d) for d in rec.trace.get("dims") or []],
                        respawn=rec.final_respawn, setup=setup_placed, start=tuple(rec.start), broke=list(broke),
                        food=rec.final_food, herd=rec.trace.get("herd"), equipment=rec.final_equipment,
-                       containers=containers, day=day_clock.day if day_clock else None, events=rec.trace["events"])
+                       containers=containers, day=day_clock.day if day_clock else None, events=rec.trace["events"],
+                       chat=rec.trace.get("chat") or [])
         rec.result = grade(task.grader, gctx).to_dict()
         agent_check = rec.trace.get("check")
         if isinstance(agent_check, dict) and agent_check.get("parts"):

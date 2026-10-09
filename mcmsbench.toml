@@ -39,3 +39,10 @@ port = 25568
 rcon_port = 25578
 compose_service = "arena-survival-2"
 data_dir = "infra/data-survival-2"
+
+# A third, for a run beside two others (slot 2's ports may be taken by another checkout's arena)
+[slots.3.survival]
+port = 25569
+rcon_port = 25579
+compose_service = "arena-survival-3"
+data_dir = "infra/data-survival-3"
