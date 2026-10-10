@@ -18,6 +18,13 @@ their `event`:
   death, block_broken, anything else kept in the event log
   goal_end                           the agent's run is over (stop, summary, seconds, cost_usd)
   trace                              the trace (also read from --out when the line never comes)
+  ask / report                       what the agent says to the people who give it directives, as structured fields
+                                     (an agent declaring `messages`): kept in the trace's `messages`, and an `ask` is
+                                     answered by the task's responders
+
+Messages to the agent (an agent declaring `messages`) are JSON lines on its stdin, `{"event": "message", ...}`: the
+replies to its asks, and any later directive. How they reach whoever the agent works for (a game chat, Discord, a text
+box) is the agent's business; the bench only says what was said, and grades the structured fields, never the words.
 
 Lines without the prefix are passed through as progress. The runner also takes a frame every FRAME_EVERY seconds, so an
 agent that reports nothing is graded on the same footing. With a day clock (`ctx.dawns`) it takes a `dawn_N` frame at
@@ -53,7 +60,8 @@ CONFIRM_SETTLE = 1.5        # a pass is graded again after the agent has been he
 FRAME_EVERY = 30.0          # seconds between the runner's own frames, whatever the agent reports
 DAWN_POLL_EVERY = 5.0       # seconds between reads of the day clock (100 ticks: no night slips between two)
 KILL_AFTER = 15.0           # seconds from SIGTERM to SIGKILL
-CAPABILITIES = ("guard", "fast_nights")   # what a task may require of an agent beyond the protocol (Task.requires)
+CAPABILITIES = ("guard", "fast_nights", "messages")   # what a task may require of an agent beyond the protocol (Task.requires)
+MESSAGE_EVENTS = ("ask", "report")         # what an agent says to the people it works for (PROTOCOL.md §5.1)
 
 
 # ------------------------------------------------------------------ manifests
@@ -159,6 +167,58 @@ def render_args(items: list, values: dict) -> list[str]:
     return out
 
 
+# ------------------------------------------------------------------ messages
+
+class Inbox:
+    """The trial's messages, both ways (PROTOCOL.md §5.1). `send` gives the agent a message: a JSON line on its stdin
+    once `attach`ed (an agent declaring `messages`), held until then; for an agent without the capability it is
+    recorded, marked undelivered, and goes nowhere. `heard` records what the agent said (`ask`, `report`). `record` is
+    the whole exchange in order, each with `t` (seconds since the agent started) and `dir` (`in` to the agent, `out`
+    from it): the trace's `messages`, and what the `asked`, `reported` graders read."""
+
+    def __init__(self):
+        self.record: list[dict] = []
+        self._write: Callable[[str], None] | None = None
+        self._held: list[dict] = []
+        self._t0: float | None = None
+        self.capable = False
+        self._lock = threading.Lock()
+
+    def _t(self) -> float:
+        return round(time.time() - self._t0, 1) if self._t0 is not None else 0.0
+
+    def attach(self, write: Callable[[str], None] | None, t0: float) -> None:
+        with self._lock:
+            self._t0, self._write, self.capable = t0, write, write is not None
+            held, self._held = self._held, []
+        for m in held:
+            self.send(m)
+
+    def send(self, message: dict) -> bool:
+        """Give the agent `message` ({"event": "message", id, from, text, re?, gives?}); whether it was delivered."""
+        msg = {"event": "message", **message}
+        with self._lock:
+            if self._t0 is None:            # before the agent is running: held for it
+                self._held.append(msg)
+                return False
+            delivered = False
+            if self._write is not None:
+                try:
+                    self._write(json.dumps(msg, default=str))
+                    delivered = True
+                except (OSError, ValueError):   # the agent has closed its stdin or exited
+                    delivered = False
+            self.record.append({"t": self._t(), "dir": "in", **msg, "delivered": delivered})
+            return delivered
+
+    def heard(self, ev: dict) -> dict:
+        """Record what the agent said (an `ask` or a `report`) and return the record."""
+        with self._lock:
+            rec = {"t": self._t(), "dir": "out", **{k: v for k, v in ev.items() if k not in ("t", "dir")}}
+            self.record.append(rec)
+            return rec
+
+
 # ------------------------------------------------------------------ one trial's hand-off
 
 @dataclass
@@ -186,6 +246,7 @@ class TrialContext:
                                                       # goal_met, and the agent is stopped once it says why
     log: object | None = None                         # the trial's EventLog
     stop: threading.Event | None = None
+    inbox: Inbox | None = None                        # the trial's messages (a task with responders); None: none
 
 
 class Agent:
@@ -267,8 +328,15 @@ class Agent:
         ctx.hand_off()
         proc = None
         try:
+            talks = ctx.inbox is not None and "messages" in self.capabilities
             proc = subprocess.Popen(cmd, cwd=self.dir, env=self.environment(), stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, text=True, bufsize=1, start_new_session=True)
+                                    stderr=subprocess.STDOUT, text=True, bufsize=1, start_new_session=True,
+                                    stdin=subprocess.PIPE if talks else subprocess.DEVNULL)
+            if ctx.inbox is not None:
+                def write(line: str, stdin=proc.stdin) -> None:
+                    stdin.write(line + "\n")
+                    stdin.flush()
+                ctx.inbox.attach(write if talks else None, t0)
             done = threading.Event()
 
             def watchdog() -> None:
@@ -363,6 +431,8 @@ class Agent:
                     if kind == "trace":
                         trace = ev.get("trace") if isinstance(ev.get("trace"), dict) else None
                         continue
+                    if kind in MESSAGE_EVENTS and ctx.inbox is not None:
+                        ctx.inbox.heard(ev)         # recorded before anyone answers it, so the record keeps the order
                     if ctx.on_event:
                         ctx.on_event(ev)
                     if elog is not None:
@@ -380,6 +450,8 @@ class Agent:
                             next_frame = time.monotonic() + FRAME_EVERY
                     elif kind == "guard_refusal":
                         refusals.append({k: v for k, v in ev.items() if k != "event"})
+                    elif kind in MESSAGE_EVENTS and ctx.inbox is not None:
+                        ctx.progress(f"{tag} {kind}{' ' + str(ev.get('to')) if ev.get('to') else ''}: {ev.get('text', '')}")
                     elif kind == "night_skip_request":
                         if ctx.night_skip is None:
                             ctx.progress(f"{tag} asked to skip the night: this task has no fast nights")
@@ -421,6 +493,8 @@ class Agent:
         trace["model"] = trace.get("model") if trace.get("model") not in (None, "", "-") else self.model
         trace["frames"] = steps
         trace["subgoals"] = subgoals
+        if ctx.inbox is not None:
+            trace["messages"] = list(ctx.inbox.record)
         trace["timer_frames"] = timer_frames
         trace["exit_code"] = code
         trace["guard_refusals"] = refusals

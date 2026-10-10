@@ -147,7 +147,9 @@ def cmd_goal(argv: list[str]) -> int:
 def cmd_check_agent(argv: list[str]) -> int:
     """Two short runs of the agent against the flat arena (or --host/--port), the bench side only: no reset, no
     grading. 1) a 20 s goal: it must exit by itself near the clock, with goal_end and a well-formed trace. 2) a 120 s
-    goal stopped at 8 s: it must exit within the SIGTERM grace and still write its trace."""
+    goal stopped at 8 s: it must exit within the SIGTERM grace and still write its trace. 3) for an agent declaring
+    `messages`: a directive from a tester who has a stick, answered on stdin; it must send an `ask` naming what it
+    needs, be given the reply, and send a `report` (PROTOCOL.md §5.1)."""
     from .arena import Arena
     from .protocol import KILL_AFTER, Agent, TrialContext, load_manifest
     from .runner import build_goal
@@ -200,6 +202,31 @@ def cmd_check_agent(argv: list[str]) -> int:
     tr, evs, took = one("sigterm", 120, 8.0)
     judge("stopped on SIGTERM", took < 8 + KILL_AFTER, f"{took:.0f} s")
     judge("trace written on SIGTERM", "without a trace" not in str(tr.get("error", "")), str(tr.get("stop")))
+    if "messages" in agent.capabilities:
+        from .protocol import Inbox
+        from .responders import Responder, Responders, needs_of
+        print(f"[3/3] {agent.name}: a directive from a tester, answered on stdin")
+        mtask = Task(id="protocol_messages", prompt="Could you ask me for a stick? I'll give you one. Then tell me it's done.",
+                     grader=None, tags=["protocol"], requester="Tester")
+        goal = build_goal(mtask, plot, plot.center(), s, 0, seed=None, fast_nights=False, grader_stops=False,
+                          max_seconds=60, max_cost=0.05)
+        inbox = Inbox()
+        answers = Responders([Responder("Tester", {"stick": 1}, {"inventory": True}, gives="here's a stick")], "Tester",
+                             lambda cmd: "(conformance: nothing handed over in the world)", inbox, a.username)
+        ctx = TrialContext(mtask.id, goal, a.host or s.arena.host, a.port or s.arena.port, a.username, s.arena.version,
+                           60, 0.05, out / "messages", hand_off=lambda: None, take_back=lambda: None,
+                           progress=lambda m: print(f"  {m}"), inbox=inbox,
+                           on_event=lambda ev: answers.answer(ev) if ev.get("event") == "ask" else None)
+        tr = agent.run(ctx)
+        msgs = tr.get("messages") or []
+        asks = [m for m in msgs if m.get("dir") == "out" and m.get("event") == "ask"]
+        reports = [m for m in msgs if m.get("dir") == "out" and m.get("event") == "report"]
+        judge("ask with a need", bool(asks) and bool(needs_of(asks[0])),
+              f"{len(asks)} asks" + (f", need {needs_of(asks[0])}" if asks else ""))
+        judge("reply delivered on stdin", any(m.get("dir") == "in" and m.get("delivered") for m in msgs),
+              f"{sum(1 for m in msgs if m.get('dir') == 'in')} replies")
+        judge("report with a status", any(str(m.get("status")) in ("done", "blocked", "failed", "in_progress")
+                                          for m in reports), f"{len(reports)} reports")
     print()
     for name, ok, why in results:
         print(f"  {'PASS' if ok else 'FAIL'}  {name:<28} {why}")

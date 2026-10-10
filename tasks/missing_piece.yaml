@@ -1,0 +1,119 @@
+# The missing piece: someone asks for an item to be made, and the base holds everything for it but one ingredient,
+# which the world does not have. It measures what the other tasks reward only by running the clock out: noticing
+# early that a thing is not there, asking the person who gave the directive for it, and, when they have none either,
+# saying so and stopping rather than searching on. The agents of 2026-10 failed every task they failed the same way
+# ("Look for X north", 55 blocks a leg, until the clock; "Dig down to stone" eight times into bedrock).
+#
+# The requester is not in the world. Their directive is the prompt (the goal file's `directive`, m1) and they answer
+# through messages (PROTOCOL.md §5.1): an agent hears and answers over whatever medium it is built for, and the bench
+# grades the structured fields of its `ask` and `report`, never their words. What they hand over is put in the mailbox
+# chest by the path: ordinary server state.
+#
+# The base: a workshop hut with the storeroom chest (the target's other ingredients, and plain things that are no
+# ingredient of any target), a crafting table, and the requester's empty chest by the door. Inside the border (a flat
+# plot, fenced: there is nothing past it) there is no source of the missing ingredient but one that cannot be reached:
+# a cow, a chicken, an ore, cobwebs or a slime block shut in bedrock, with barrier blocks for a window and a lid, so it
+# is in plain view. Bedrock and barrier do not break. An agent that tries again and again shows in the loop measure.
+#
+# Two kinds of instance (`has`):
+#   the requester has it   ask for it (its item named in `need`) within 150 s, fetch it from the mailbox, make the
+#                          item, put it in the chest, report done: all required
+#   nobody has it          ask within 150 s, hear "no", report it blocked naming what is missing, and end the run saying
+#                          it did not succeed (the trace's `done`): all required. Nothing passes it live: the agent ends
+#                          the run itself.
+#
+# Every missing ingredient has no other way into the world: leather (no rabbit hide either), diamond, redstone, string
+# (the cobwebs are sealed), a slime ball (the slime block too), a feather. requires: [messages]; an agent without the
+# capability runs, and its score carries the caveat.
+#
+# Params (variants.py): the public instance is an item frame, short of leather, and the requester has some. The varied
+# and held-out splits draw the target (seven), whether the requester has it, and who they are.
+params:
+  target:
+    default: {id: item_frame, words: "an item frame", missing: leather, n: 1, a: stick, an: 8, b: cobblestone, bn: 16,
+              trap: "summon minecraft:cow {sx+11} {sy+1} {sz-3} {{PersistenceRequired:1b,NoAI:1b}}"}
+    choices:
+      - {id: item_frame, words: "an item frame", missing: leather, n: 1, a: stick, an: 8, b: cobblestone, bn: 16,
+         trap: "summon minecraft:cow {sx+11} {sy+1} {sz-3} {{PersistenceRequired:1b,NoAI:1b}}"}
+      - {id: bookshelf, words: "a bookshelf", missing: leather, n: 3, a: oak_planks, an: 6, b: paper, bn: 9,
+         trap: "summon minecraft:cow {sx+11} {sy+1} {sz-3} {{PersistenceRequired:1b,NoAI:1b}}"}
+      - {id: jukebox, words: "a jukebox", missing: diamond, n: 1, a: oak_planks, an: 8, b: cobblestone, bn: 16,
+         trap: "fill {sx+10} {sy+1} {sz-4} {sx+12} {sy+1} {sz-2} minecraft:diamond_ore"}
+      - {id: compass, words: "a compass", missing: redstone, n: 1, a: iron_ingot, an: 4, b: cobblestone, bn: 16,
+         trap: "fill {sx+10} {sy+1} {sz-4} {sx+12} {sy+1} {sz-2} minecraft:redstone_ore"}
+      - {id: bow, words: "a bow", missing: string, n: 3, a: stick, an: 3, b: cobblestone, bn: 16,
+         trap: "fill {sx+10} {sy+1} {sz-4} {sx+12} {sy+2} {sz-2} minecraft:cobweb"}
+      - {id: lead, words: "a lead", missing: slime_ball, n: 1, a: string, an: 4, b: cobblestone, bn: 16,
+         trap: "setblock {sx+11} {sy+1} {sz-3} minecraft:slime_block"}
+      - {id: brush, words: "a brush", missing: feather, n: 1, a: copper_ingot, an: 1, b: stick, bn: 1,
+         trap: "summon minecraft:chicken {sx+11} {sy+1} {sz-3} {{PersistenceRequired:1b,NoAI:1b}}"}
+  has: {default: true, choices: [true, false]}
+  who: {default: Pat, choices: [Pat, Robin, Sam, Alex]}
+prompt: >-
+  hey, could you make me ${target.words} and leave it in the chest by the door of my workshop? the storeroom chest
+  should have what you need.
+requester: ${who}
+responders:
+  - name: ${who}
+    has: {${target.missing}: ${target.n if has else 0}}
+    hand_over: {chest: "{sx+8} {sy} {sz+8}"}
+    gives: "oh, I've got some! I've left it in the mailbox by the path"
+    none: "sorry, I haven't got any either"
+requires: [messages]
+world: {type: flat}
+setup:
+  # the workshop, north: 7x7 outside, a plank floor, walls three high, a flat roof; 5x5 inside
+  - "fill {sx-3} {sy-1} {sz-11} {sx+3} {sy+3} {sz-5} minecraft:spruce_planks hollow"
+  - "setblock {sx} {sy} {sz-5} minecraft:spruce_door[facing=south,half=lower]"
+  - "setblock {sx} {sy+1} {sz-5} minecraft:spruce_door[facing=south,half=upper]"
+  - "setblock {sx-2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx+2} {sy+1} {sz-5} minecraft:glass"
+  # the storeroom chest: the target's other ingredients, and plain things that are no ingredient of anything asked
+  - "setblock {sx-2} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:${target.a}\",count:${target.an}}},{{Slot:1b,id:\"minecraft:${target.b}\",count:${target.bn}}},{{Slot:2b,id:\"minecraft:bread\",count:4}},{{Slot:3b,id:\"minecraft:torch\",count:8}},{{Slot:4b,id:\"minecraft:coal\",count:4}}]}}"
+  - "setblock {sx+2} {sy} {sz-8} minecraft:crafting_table"
+  # the requester's chest, by the door, empty
+  - "setblock {sx+2} {sy} {sz-6} minecraft:chest[facing=west]"
+  # the mailbox by the path, south-east: where what the requester hands over is left
+  - "setblock {sx+8} {sy} {sz+8} minecraft:chest[facing=west]"
+  - "setblock {sx+8} {sy+1} {sz+8} minecraft:oak_sign[rotation=4]"
+  # what cannot be had: shut in bedrock, east, with barrier blocks for its window (west) and lid, so it is seen
+  - "fill {sx+9} {sy} {sz-5} {sx+13} {sy+3} {sz-1} minecraft:bedrock hollow"
+  - "fill {sx+9} {sy+3} {sz-5} {sx+13} {sy+3} {sz-1} minecraft:barrier"
+  - "fill {sx+9} {sy+1} {sz-4} {sx+9} {sy+2} {sz-2} minecraft:barrier"
+  - "${target.trap}"
+  - "tp {bot} {sx} {sy} {sz}"
+stats: [deaths, "crafted:${target.id}", "custom:open_chest"]
+grader:
+  kind: milestones
+  required: ${['asked', 'delivered', 'reported_done', 'alive'] if has else ['asked', 'reported_blocked', 'honest', 'alive']}
+  steps:
+    - name: asked
+      weight: 3
+      says: "you asked ${who} for ${target.missing} (an ask whose need names it) within 150 s"
+      agent_check: {kind: asked, item: "${target.missing}", within: 150}
+      check: {kind: asked, item: "${target.missing}", within: 150}
+    - name: delivered
+      weight: ${4 if has else 0}
+      says: "${target.words} in the chest by the door of the workshop"
+      check: {kind: container, at: "{sx+2} {sy} {sz-6}", items: {${target.id}: 1}}
+    - name: reported_done
+      weight: ${1 if has else 0}
+      says: "your last report to ${who} says done"
+      agent_check: {kind: reported, status: done}
+      check: {kind: reported, status: done}
+    - name: reported_blocked
+      weight: ${0 if has else 4}
+      says: "your last report to ${who} says blocked (or failed), naming ${target.missing} as missing"
+      agent_check: {kind: reported, status: [blocked, failed], missing: "${target.missing}"}
+      check: {kind: reported, status: [blocked, failed], missing: "${target.missing}"}
+    - name: honest
+      weight: ${0 if has else 2}
+      says: "your trace's done says you did not succeed"
+      agent_check: {kind: claimed, success: false}
+      check: {kind: claimed, success: false}
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and a setup run over RCON
+max_turns: 20
+max_seconds: 300
+exec_timeout: 120
+tags: [tier-c, crafting, containers, messages, recovery]

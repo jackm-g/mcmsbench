@@ -22,7 +22,7 @@ provider = "default-backend"                       # the default for {provider};
 model = ""                                         # the default for {model}; --model overrides it
 args = [["--backend", "{provider}"], ["--model", "{model}"], "--always"]
 label = "myagent ({provider})"                     # the model column when no --model is given
-capabilities = ["fast_nights"]                     # see §6
+capabilities = ["fast_nights"]                     # see §6: guard, fast_nights, messages
 requires_files = ["bin/myagent.js", "node_modules"]   # what `mcmsbench agents` checks a checkout for
 env = { MYAGENT_QUIET = "1" }                      # added to the environment; values expand ${ENV}
 goal_format = "json"                               # "text": the goal file holds only the prompt (older agents)
@@ -68,21 +68,22 @@ The agent must not expect to be op, and it never gets RCON.
   "task_id": "shelter_in_desert",
   "trial": 0,
   "prompt": "Build a shelter here that will keep mobs out tonight: ...",   // the task, as a player would say it
+  "directive": { "id": "m1", "from": "Pat" },     // when the prompt is someone's directive (§5.1); absent otherwise
   "check": { "kind": "all", "parts": [...], "uncovered": [...] },          // the grader's terms; null for none (§4.1)
   "movements": { "can_dig": true, "towers": true, "scaffolding": ["sand", "dirt"] },   // what the task allows
   "profile": {
     "multiplayer": false, "players": [], "longRun": false,      // other players the bench puts on the server (below)
     "spawnProtection": { "x": 154, "z": 163, "radius": 16 },    // or null: the server refuses digs/places inside it;
                                                                 //   round the world spawn, not always the plot's centre
-    "border": { "x": 154, "z": 163, "radius": 48 },             // or null (flat plots)
+    "border": { "x": 154, "z": 163, "radius": 48 },             // the world border: nothing past it; a flat plot's is
+                                                                 // 8 past its edge; null in a Nether room
     "fastNights": true,      // a night_skip_request (§5) will be answered
     "graderStops": true      // the bench grades live and stops the agent once the task passes
   },
   "world": { "type": "survival", "seed": 1, "difficulty": "normal", "daylight": true,
              "dimension": "minecraft:overworld", "keep_inventory": true },
   "plot": { "min": [106, 58, 115], "max": [202, 98, 211], "center": [154, 70, 163], "floor_y": null,
-            "anchor": [106, 58, 115],       // the graded volume; floor_y on a flat plot; the point {ax..} in prompts
-            "border": { "min": [106, 115], "max": [202, 211] } },   // the world border (x, z): nothing past it
+            "anchor": [106, 58, 115] },     // the graded volume; floor_y on a flat plot; the point {ax..} in prompts
   "start": [154, 70, 163],
   "inventory": { "torch": 12 },             // what the player was given
   "budget": { "max_seconds": 900, "max_cost_usd": 5.0 },
@@ -172,10 +173,43 @@ Print one JSON object per line, after the prefix and a space, keyed by `event`:
 | `guard_refusal` | anything (`why`, `at`...) | counts it for the `guard` grader (§6) |
 | `death`, `block_broken`, others | anything | keeps it in the trial's event log |
 | `goal_end` | `stop`, `summary`, `seconds`, `cost_usd` | notes that your run is over; send it before you log out |
+| `ask` | `id`, `to`, `re`, `need: [{item, count}]`, `text` | with `messages`: asks someone for something (§5.1); a task's responders answer |
+| `report` | `re`, `status`, `missing?: [{item, count}]`, `text` | with `messages`: tells whoever gave a directive how it stands (§5.1) |
 | `trace` | `trace: {...}` | records the trace (§7) |
 
 Lines without the prefix are shown as progress and kept, the last 20 KB of them, in the record. The bench also takes
 a frame every 30 seconds itself, so an agent that sends no subgoal events is not graded on less.
+
+### 5.1 Messages
+
+Directives come from people, over whatever medium an agent is built for: a game's chat, Discord, a text box, something
+not yet thought of. The bench is not any of them. It says what was said, as structured messages, and leaves the medium
+to the agent's harness; it grades the structured fields, never the words.
+
+An agent that declares the `messages` capability (§6) gets messages as JSON lines on its **stdin**:
+
+```json
+{"event": "message", "id": "m2", "from": "Pat", "re": "a1", "text": "oh, I've got some, it's in the mailbox", "gives": {"leather": 1}}
+```
+
+- The goal file's `prompt` is the first directive, `m1`, from `directive.from`. Later messages are numbered on.
+- `re` is what a message answers (your ask's `id`). `gives` is what the sender handed over, by item; it is in the
+  world already, where the task's sender puts things (a chest, the ground, your inventory). `text` is theirs, for you
+  to read or pass on; nothing depends on it.
+
+It answers on stdout, with two events:
+
+- **`ask`**: `{"event": "ask", "id": "a1", "to": "Pat", "re": "m1", "need": [{"item": "leather", "count": 1}],
+  "text": "have you got any leather?"}`. `to` is a name (none: whoever gave the directive); `need` names items as the
+  server does (`leather`, `minecraft:leather`). A task's responders answer an ask they can, with a message.
+- **`report`**: `{"event": "report", "re": "m1", "status": "blocked", "missing": [{"item": "leather"}], "text": "..."}`.
+  `status` is `done`, `blocked`, `failed` or `in_progress`; `missing`, when something is, names it. Your last report
+  is your answer to the directive.
+
+The `text` of an ask or a report is for people; graders read `need`, `status` and `missing`. A task may grade that you
+asked for what was missing, and in time (`asked`), how your last report stands (`reported`), and what your trace's
+`done` says (`claimed`): an agent that cannot do what it was asked should say so, not run the clock out. The whole
+exchange is the trace's `messages`, in order, each with `t` and `dir` (`in` to you, `out` from you).
 
 ## 6. Signals and stopping
 
@@ -197,6 +231,8 @@ a frame every 30 seconds itself, so an agent that sends no subgoal events is not
 - `guard`: the agent refuses to break blocks that are not its own, and reports each refusal as `guard_refusal`. The
   `guard` grader counts those reports.
 - `fast_nights`: the agent sends `night_skip_request`.
+- `messages`: the agent reads messages on its stdin and sends `ask` and `report` (§5.1). An agent without it gets an
+  empty stdin, and what is said to it is recorded as not delivered.
 
 An agent missing a capability a task requires still runs. Its trial carries a `caveats` entry, and the summary says
 which tasks have one: those scores are not comparable across agents.

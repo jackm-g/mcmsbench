@@ -134,8 +134,8 @@ def test_the_goal_file_says_where_the_border_is():
     goal = build_goal(task, plot, plot.center(), settings, 0, seed=None, fast_nights=False, grader_stops=False,
                       max_seconds=600, max_cost=5)
     (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
-    assert goal["plot"]["border"] == {"min": [x0 - 8, z0 - 8], "max": [x1 + 8, z1 + 8]}
+    assert goal["profile"]["border"] == {"x": (x0 + x1 + 1) // 2, "z": (z0 + z1 + 1) // 2, "radius": 24}   # 32 + 2 x 8
     nether = Arena(ArenaConfig(), lambda cmd: "").plot(0, "the_nether")
     goal = build_goal(load("piglin_barter"), nether, nether.center(), settings, 0, seed=None, fast_nights=False,
                       grader_stops=False, max_seconds=600, max_cost=5)
-    assert "border" not in goal["plot"]
+    assert goal["profile"]["border"] is None

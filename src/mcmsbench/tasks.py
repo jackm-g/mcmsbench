@@ -104,6 +104,8 @@ class Task:
                                       # those kinds, counts the ones the bot kills (the `herd` grader's max_baby_kills) and
                                       # ages them `grow` times as fast (a calf is 20 real minutes otherwise); `strays: true`
                                       # removes adults of those kinds the world spawns (natural spawning, jockeys)
+    requester: str | None = None      # who gives the directive (the prompt): the goal file's `directive.from` (PROTOCOL.md §5.1)
+    responders: list[dict] = field(default_factory=list)   # who answers an agent's `ask`, and with what (responders.py)
     params: dict = field(default_factory=dict)        # the task's variant params (variants.py): {name: {default, choices|range}}
     param_values: dict = field(default_factory=dict)  # the values this instance was drawn with
     split: str = "public"                             # the split it was drawn for (public: the defaults)
@@ -223,6 +225,11 @@ class Task:
             out += [(x, y, z) for x in range(min(x0, x1), max(x0, x1) + 1) for y in range(min(y0, y1), max(y0, y1) + 1)
                     for z in range(min(z0, z1), max(z0, z1) + 1)]
         return out
+
+    def render_responders(self, plot: Plot, start=None):
+        """The responders, their places templated like setup (responders.Responder)."""
+        from .responders import Responder
+        return [Responder.of(r, lambda text: self._fmt(text, plot, start)) for r in self.responders]
 
     def render_load_nether(self, plot: Plot, start=None) -> tuple[int, int, int, int] | None:
         """`load_nether`, templated, as (x0, z0, x1, z1); None when the task has none."""

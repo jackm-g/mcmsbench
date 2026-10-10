@@ -4,6 +4,9 @@
   hang      a subgoal started, then waits for SIGTERM; on it writes its trace to --out only and exits
   no_trace  prints a line and exits 3 without a trace
   bare      a trace whose `done` is a bare flag and whose numbers are strings
+  messages  asks for FAKE_NEED (else what the goal's `asked` check names, else leather) about the goal's directive,
+            reads the reply from stdin, reports done
+            when it was given what it asked for and blocked when not, and says so in its trace's `done`
 """
 import argparse
 import json
@@ -63,6 +66,25 @@ if mode == "hang":
 if mode == "no_trace":
     print("something went wrong", flush=True)
     sys.exit(3)
+
+if mode == "messages":
+    asked = [u.get("check") or {} for u in ((goal.get("check") or {}).get("uncovered") or []) if u.get("kind") == "asked"]
+    need = os.environ.get("FAKE_NEED") or (asked[0].get("item") if asked else None) or "leather"
+    re_ = (goal.get("directive") or {}).get("id")
+    emit("ask", id="a1", to=os.environ.get("FAKE_TO", (goal.get("directive") or {}).get("from") or "Pat"), re=re_,
+         need=[{"item": need, "count": 1}], text=f"have you got any {need}?")
+    line = sys.stdin.readline()
+    reply = json.loads(line) if line.strip() else {}
+    got = bool((reply.get("gives") or {}).get(need))
+    if got:
+        emit("report", re=re_, status="done", text="made it, it's in your chest")
+    else:
+        emit("report", re=re_, status="blocked", missing=[{"item": need, "count": 1}], text=f"can't: no {need} anywhere")
+    trace = {"turns": 1, "cost_usd": 0.0, "steps": [], "stop": "done", "argv": argv_note, "reply": reply,
+             "done": {"success": got, "summary": "done" if got else f"blocked: no {need}"}}
+    emit("trace", trace=trace)
+    write(trace)
+    sys.exit(0)
 
 if mode == "bare":
     emit("trace", trace={"turns": "4", "cost_usd": "0.5", "done": True, "stop": "done", "steps": None})

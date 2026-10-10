@@ -3,6 +3,7 @@ the held-out key kept from agents, and every task with params sound in every spl
 and each variant gradable (multi_room_house: a correct house of each shape passes, a wrong one fails). No server."""
 import json
 import os
+import re
 
 import pytest
 
@@ -129,7 +130,8 @@ def test_the_variants_selector_is_the_tasks_with_params_and_never_a_tag_agents_s
 def test_every_instance_reads_and_its_params_are_used(task):
     text = task.source.read_text()
     for name in task.params:
-        assert f"${{{name}" in text or f"{name}." in text, f"{task.id}: param {name} is never used"
+        used = re.search(r"\$\{[^{}]*\b" + re.escape(name) + r"\b", text)       # ${name}, ${name.x}, ${4 if name else 0}
+        assert used, f"{task.id}: param {name} is never used"
     for split, key in (("public", None), ("varied", None), ("heldout", KEY)):
         for trial in range(8):
             inst = task.instance(split, trial, key)

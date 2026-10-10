@@ -30,7 +30,8 @@ from .goalspec import check_agreement, from_grader
 from .graders import Context, Frame, built, grade
 from .observer import ObserverClient, ObserverDead
 from .players import ScriptedPlayers
-from .protocol import PROTOCOL_VERSION, Agent, TrialContext
+from .protocol import PROTOCOL_VERSION, Agent, Inbox, TrialContext
+from .responders import Responders
 from .rcon import Rcon
 from .render import render_iso, render_topdown, timelapse
 from .render.report import run_index, trial_report
@@ -613,8 +614,16 @@ def spawn_protection(task: Task, plot: Plot, start: tuple[int, int, int] | None 
 
 
 def world_border(task: Task, plot: Plot, s: Settings) -> dict | None:
-    """The survival arena's /worldborder (the task's `world.border`, else [survival].border; a diameter, centred on the
-    spawn the plot is centred on), or None on a flat plot."""
+    """The world border the trial runs inside: the survival arena's /worldborder (the task's `world.border`, else
+    [survival].border; a diameter, centred on the spawn the plot is centred on), or a flat overworld plot's fence
+    (Arena.fence); None for a Nether room (walled) or an unfenced plot."""
+    if plot.flat:
+        if not plot.fence or plot.dimension != "minecraft:overworld":
+            return None
+        (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
+        num = lambda v: int(v) if float(v).is_integer() else v      # noqa: E731
+        return {"x": num((x0 + x1 + 1) / 2), "z": num((z0 + z1 + 1) / 2),
+                "radius": num((max(x1 - x0, z1 - z0) + 1 + 2 * plot.fence) / 2)}
     if task.world.type != "survival":
         return None
     diameter = task.world.border or s.survival.border
@@ -636,6 +645,8 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
         "task_id": task.id,
         "trial": trial,
         "prompt": task.render(plot, start),
+        # the prompt is a directive from someone (PROTOCOL.md §5.1): an agent's ask and report may refer to it by id
+        **({"directive": {"id": "m1", "from": task.requester}} if task.requester else {}),
         "check": check if isinstance(check, dict) else None,
         "movements": dict(task.movements or {}),
         "profile": {"multiplayer": bool(task.players), "players": [str(p["name"]) for p in task.players],
@@ -646,8 +657,7 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
                   "keep_inventory": task.world.keep_inventory},
         "plot": {"min": list(lo), "max": list(hi), "center": list(plot.center()),
                  "floor_y": plot.floor_y if plot.flat else None,
-                 "anchor": [lo[0] + task.anchor[0], lo[1] + task.anchor[1], lo[2] + task.anchor[2]],
-                 **({"border": b} if (b := border_of(task, plot, s)) else {})},
+                 "anchor": [lo[0] + task.anchor[0], lo[1] + task.anchor[1], lo[2] + task.anchor[2]]},
         "start": list(start),
         "inventory": dict(task.inventory or {}),
         "budget": {"max_seconds": max_seconds, "max_cost_usd": max_cost,
@@ -742,20 +752,6 @@ def task_hash(task_id: str) -> str:
     d = with_profile(yaml.safe_load(text))
     d.pop("params", None)
     return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:16]
-
-
-def border_of(task: Task, plot: Plot, s: Settings) -> dict | None:
-    """The world border the trial runs inside, as {min: [x, z], max: [x, z]}: a flat overworld plot's fence, or a
-    survival world's border round its spawn. None for a Nether room (walled) or an unfenced plot. A player sees it."""
-    if plot.flat:
-        if not plot.fence or plot.dimension != "minecraft:overworld":
-            return None
-        (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
-        f = plot.fence
-        return {"min": [x0 - f, z0 - f], "max": [x1 + f, z1 + f]}
-    cx, _, cz = plot.center()
-    half = (task.world.border or s.survival.border) // 2
-    return {"min": [cx - half, cz - half], "max": [cx + half, cz + half]}
 
 
 def bench_info(task: Task, agent: Agent) -> dict:
@@ -926,7 +922,7 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                            food=arena.server_food(a.bot_username), herd=dict(herd.tally) if herd else None,
                            equipment=arena.server_equipment(a.bot_username) if wears else None,
                            day=day_clock.day if day_clock else None, events=list(events.fired) if events else [],
-                           chat=players.chat() if players else [])
+                           chat=players.chat() if players else [], messages=list(inbox.record) if inbox else [])
 
         def goal_met() -> bool:
             # the grader itself on the world as it stands, read as the final capture reads it; never for a grader
@@ -937,9 +933,17 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
             elog.emit("live_grade", passed=r.passed, score=round(r.score, 3), checks=r.checks, t=round(time.time() - t0, 1))
             return r.passed
 
+        # the people the agent works for (responders.py): what it asks for is answered, through the trial's inbox
+        inbox = Inbox() if (task.responders or task.requester) else None
+        answers = Responders(task.render_responders(plot, start), task.requester, arena.rcon, inbox,
+                             a.bot_username) if task.responders else None
+
         def on_event(ev: dict) -> None:
             if ev.get("event") == "guard_refusal":
                 refusals.append({k: v for k, v in ev.items() if k != "event"})
+            elif ev.get("event") == "ask" and answers is not None:
+                reply = answers.answer(ev)
+                elog.emit("responder", ask=ev.get("id"), to=ev.get("to"), reply=reply)
 
         live = stops_on_pass(task) and LIVE_GRADE
         fast = bool(task.fast_nights and task.world.daylight)
@@ -962,9 +966,12 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                            night_skip=night_skip if fast else None, on_event=on_event, log=elog,
                            dawns=day_clock.poll if day_clock else None,
                            end_at_dawn=task.end_at_dawn if day_clock else None,
-                           lost=(lambda: "the player died" if (stats.read() or {}).get("deaths", 0) > 0 else None) if task.fail_on_death else None)
+                           lost=(lambda: "the player died" if (stats.read() or {}).get("deaths", 0) > 0 else None) if task.fail_on_death else None,
+                           inbox=inbox)
         rec.trace = {"agent": agent.name, "model": agent.model, "start_food": start_food}
         rec.trace.update(agent.run(ctx))
+        if answers is not None:
+            rec.trace["responders"] = answers.log
         if rec.trace.get("error"):          # the agent ended with stop = "error", or never wrote a trace
             rec.error = str(rec.trace["error"])
     except ObserverDead:
@@ -1041,7 +1048,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
                        respawn=rec.final_respawn, setup=setup_placed, start=tuple(rec.start), broke=list(broke),
                        food=rec.final_food, herd=rec.trace.get("herd"), equipment=rec.final_equipment,
                        containers=containers, day=day_clock.day if day_clock else None, events=rec.trace["events"],
-                       chat=rec.trace.get("chat") or [])
+                       chat=rec.trace.get("chat") or [], messages=rec.trace.get("messages") or [],
+                       claim=rec.trace.get("done"))
         rec.result = grade(task.grader, gctx).to_dict()
         agent_check = rec.trace.get("check")
         if isinstance(agent_check, dict) and agent_check.get("parts"):

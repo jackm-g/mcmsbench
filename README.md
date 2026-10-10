@@ -16,7 +16,7 @@ No agent ships with the bench. You bring your own (see [Adding an agent](#adding
 
 | | |
 |---|---|
-| `tasks/*.yaml` | 75 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway |
+| `tasks/*.yaml` | 76 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway, an item whose last ingredient only the requester may have |
 | `profiles/*.yaml` | defaults a task inherits (`prod`: a hard, snowy server with spawn protection; `farmstead`) |
 | `infra/docker-compose.yml` | the arenas: a superflat server, and survival servers restored from `infra/worlds/<seed>.tar` |
 | `src/mcmsbench/` | the runner, the protocol, the observer, the graders, reports and the compare page |
@@ -93,6 +93,8 @@ mcmsbench probe slice|top --x A [B] --z C [D] --y LO HI [--dimension D] [--load]
    - the task's timed events fire, a scripted player's chat lines (`say:`) among them (with players, the events'
      clock starts when the agent is on the server);
    - every block broken in the plot is logged;
+   - a task's responders answer the agent's `ask` events: a reply on its stdin, what they give put in the world
+     (PROTOCOL.md §5.1, for an agent declaring `messages`; the medium the agent hears directives over is its own);
    - the grader runs on the live world, and the agent is stopped once the task passes. Set
      `MCMSBENCH_LIVE_GRADE=0` to let agents play on to their own stop or the clock.
 5. **Take back.** The stand-in logs back in. Position, inventory, health, food, time, dimension and respawn point
@@ -148,7 +150,8 @@ Tasks with params today: `multi_room_house` (size, rooms a floor, windows, wood)
 fittings, wood), `tower_under_threat` (size, height, where the bot starts, the two at the site), `helping_pat` (the
 friend's name, the counts, the camp), `housesitter_beetroot` (the crop, how many), `nether_highway` (the cargo),
 `beacon` (the vault's mix of metal, where the star is, a full or empty bucket, the power), `brewing` (the potion,
-drinkable or splash) and `commission` (the item asked for, of seven, and when its key ingredient may be taken).
+drinkable or splash), `commission` (the item asked for, of seven, and when its key ingredient may be taken) and
+`missing_piece` (the item, of seven, whether the requester has what is missing, and who they are).
 `mcmsbench tasks` lists each one's params.
 
 A task file is public, and so are the domains in it: an agent developed on the public and varied instances may have
