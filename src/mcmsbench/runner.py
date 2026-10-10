@@ -662,15 +662,30 @@ def container_checks(check: dict, task: Task, plot: Plot, start) -> None:
     carries its bound. ("the lighthouse chest holds all the cargo" alone did not say where, or what.) A `herd` part
     carries its kinds, its count each and the pen's inside (`within`, six numbers); a `block_state` part its block's
     `at`, `block` and `state`: an agent that can see animals and blocks scores them as it goes. A `leg` part carries its
-    dimension and `min_travel` (and `exit_near`, [x, z] in that dimension, when it asks one)."""
-    steps = {str(m.get("name")): dict(m.get("check") or {}) for m in (task.grader or {}).get("steps") or []}
+    dimension and `min_travel` (and `exit_near`, [x, z] in that dimension, when it asks one). An `intact` part carries
+    what it keeps (`of`: setup, or the agent's build) and what it lets move (`exclude`).
+
+    A step whose grader an agent cannot copy (a `functional` test of server commands) may say what it asks in terms an
+    agent can score, as its `agent_check`: that goes in `check` as written, an `at` resolved like the others. ("a lit
+    beacon" in words alone was a part no agent served.) The grader stays the step's own check."""
+    all_steps = list((task.grader or {}).get("steps") or [])
+    steps = {str(m.get("name")): dict(m.get("check") or {}) for m in all_steps}
+    agent = {str(m.get("name")): dict(m["agent_check"]) for m in all_steps if isinstance(m.get("agent_check"), dict)}
     xyz = lambda text: [int(v) for v in task._fmt(str(text), plot, start).split()]      # noqa: E731
     for u in check.get("uncovered") or []:
         spec = steps.get(str(u.get("name")))
         if not spec:
             continue
         with contextlib.suppress(KeyError, ValueError, IndexError, TypeError):
-            if u.get("kind") == "container" and "at" in spec:
+            if str(u.get("name")) in agent:
+                own = dict(agent[str(u.get("name"))])
+                if "at" in own:
+                    own["at"] = xyz(own["at"])
+                u["check"] = own
+            elif u.get("kind") == "intact":
+                u["check"] = {"kind": "intact", "of": str(spec.get("of", "build")),
+                              **({"exclude": [str(b) for b in spec["exclude"]]} if spec.get("exclude") else {})}
+            elif u.get("kind") == "container" and "at" in spec:
                 items = dict(spec["items"]) if isinstance(spec.get("items"), dict) else {str(spec.get("item")): int(spec.get("count", 1))}
                 u["check"] = {"kind": "container", "at": xyz(spec["at"]), "items": {str(k): int(v) for k, v in items.items()}}
             # a herd in a pen: the kinds, the count each, and the pen's inside resolved ([x1, y1, z1, x2, y2, z2])

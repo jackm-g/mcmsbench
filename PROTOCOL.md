@@ -135,7 +135,13 @@ center}`, the shape of a live `grader` part: the bench's spec on this trial's pl
 copy of that grader. `exit_route` reads the trial's frames and position track, so such an agent keeps its own record
 of where it walked. A `leg` part carries `check: {kind: "leg", dimension, min_travel, exit_near?: [x, z], tolerance?}`:
 a stretch of the trip in that dimension (such as `the_nether`) that must reach `min_travel` blocks (x and z) from where
-the agent came in, and, with `exit_near`, leave it within `tolerance` of that point, in that dimension's coordinates.
+the agent came in, and, with `exit_near`, leave it within `tolerance` of that point, in that dimension's coordinates. An
+`intact` part carries `check: {kind: "intact", of, exclude?}`: what must be left standing (`setup`: what the task
+built; `build`: the agent's own) and what may be moved. A part whose grader runs server commands (`functional`) may
+carry the task's own `check` in terms an agent can score, such as `{kind: "beacon", min_levels: 1}` (a beacon whose
+base gives it at least that level and whose sky is open) or `{kind: "beacon", primary: "haste"}` (its primary power).
+A `container` check may also carry `potion` (such as `long_fire_resistance`): the items counted are only those holding
+that potion.
 
 ### 4.2 `options`
 

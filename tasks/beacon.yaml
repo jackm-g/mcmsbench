@@ -1,0 +1,135 @@
+# A late-game build from parts that each come from somewhere else: a working beacon at a base, from the Wither's star.
+# The recipe is a nether star, 3 obsidian and 5 glass at a crafting table, and none of it is carried. The star is in
+# the house (in a frame on the wall, or in the bot's ender chest); the obsidian has to be made, by water poured on the
+# lava pool east of the house and mined with the diamond pickaxe; the glass has to be smelted, from the sand round the
+# pond south-west, in the house's empty furnace with the coal in the tool chest. The base under it is nine blocks of
+# metal, none of them ready: the vault chest holds the metal in mixed forms (blocks, ingots, raw ore, gems) that come
+# to exactly nine blocks once crafted (and smelted), with one ingot over, which is what the beacon is paid with to set
+# its power. A trial that crafts greedily, or pays with an ingot it needed for a block, comes up one short.
+#
+# The traps are the ones a late-game player knows: the copper blocks in the vault are not a beacon base; the crying
+# obsidian in the tool chest is not obsidian; the stained glass there does not make a beacon; the iron pickaxe breaks
+# obsidian and drops nothing; the house's windows drop nothing without silk touch; and the ender chest, mined with a
+# pickaxe, drops 8 obsidian and is gone (it is the owner's, and in the ender variant the star is in it). A beacon is
+# lit only with open sky above it (glass is fine), so one built inside the house, or under its eaves, is not.
+#
+# Seed 1 at the spawn (the housesitter's base site, 2026-10-06's probe), the day running from dawn on Normal: the
+# whole ten minutes is daylight. A beacon recomputes its level only on a game tick that is a multiple of 80. The game
+# clock stands still only while the server is empty (pause-when-empty-seconds), never in a trial (the observer and the
+# bot are on); `advance_time: false` stops the time of day, not the game clock, and a beacon on the flat arena lights
+# too (checked 2026-10-09). Seed 1 is for the base's setting, not the beacon's sake. Checked on the
+# survival arena on 2026-10-09 with a client online: a 3x3 of emerald with a diamond centre gives Levels 1, a copper
+# block in it 0, a stone block ten above 0, glass there 1; `primary_effect` is "minecraft:haste" once set.
+#
+# The lit and powered parts carry `agent_check`s for the goal file ({kind: beacon, min_levels: 1}; {kind: beacon,
+# primary: <power>}): the functional asserts are server commands no agent can read.
+#
+# Graded from the server: a beacon in the plot (the one nearest the spawn) with Levels above 0 (base and sky as the
+# game itself judges them), its primary power the one asked for, the house intact (the furnace and crafting table may
+# be moved), and no death: all required. Scored: obsidian mined, glass smelted, the beacon crafted (the counters).
+# Setting the power needs the beacon's window and a payment item; an agent that cannot work that window can still
+# light one and earns the rest of the score.
+#
+# Params (variants.py): the public instance is the vault below (iron and gold, an emerald's worth), the star in the
+# frame, a full water bucket, and Haste. The varied and held-out splits draw the vault (five mixes, two with raw ore
+# to smelt alongside the sand), where the star is, whether the bucket is full (an empty one is filled at the pond),
+# and the power (Speed or Haste: the two a one-level beacon has).
+params:
+  vault:
+    default: {a: iron_block, an: 3, b: iron_ingot, bn: 28, c: gold_ingot, cn: 18, d: emerald, dn: 9}
+    choices:
+      - {a: iron_block, an: 3, b: iron_ingot, bn: 28, c: gold_ingot, cn: 18, d: emerald, dn: 9}
+      - {a: iron_block, an: 2, b: raw_iron, bn: 10, c: gold_ingot, cn: 45, d: diamond, dn: 9}
+      - {a: gold_block, an: 2, b: gold_ingot, bn: 28, c: iron_ingot, cn: 27, d: emerald, dn: 9}
+      - {a: iron_block, an: 1, b: iron_ingot, bn: 46, c: raw_gold, cn: 9, d: emerald, dn: 18}
+      - {a: emerald_block, an: 1, b: iron_ingot, bn: 36, c: gold_ingot, cn: 28, d: diamond, dn: 9}
+  star:
+    default: {frame: nether_star, ender: air, words: "it's in the frame on the wall in the house"}
+    choices:
+      - {frame: nether_star, ender: air, words: "it's in the frame on the wall in the house"}
+      - {frame: wither_skeleton_skull, ender: nether_star, words: "I left it in your ender chest, there's one in the house"}
+  water: {default: water_bucket, choices: [water_bucket, bucket]}
+  power:
+    default: {id: haste, words: Haste}
+    choices:
+      - {id: haste, words: Haste}
+      - {id: speed, words: Speed}
+prompt: >-
+  We finally beat the Wither, so let's get the beacon up. Craft it from the star (${star.words}), set it on a proper
+  base out in the yard under open sky, and set its power to ${power.words}. Whatever else it takes is somewhere around
+  the base. Don't take the house apart while you're at it.
+anchor: [24, 12, 24]    # the spawn (radius 24): {find:beacon} takes the beacon nearest it
+inventory: {bread: 4}
+world: {type: survival, seeds: [1], radius: 24, border: 64, daylight: true, difficulty: normal}
+start: {time: 0, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the yard: 33x33 of grass round the spawn, clear 16 up, dirt below
+  - "fill {sx-16} {sy} {sz-16} {sx+16} {sy+16} {sz+16} minecraft:air"
+  - "fill {sx-16} {sy-5} {sz-16} {sx+16} {sy-2} {sz+16} minecraft:dirt"
+  - "fill {sx-16} {sy-1} {sz-16} {sx+16} {sy-1} {sz+16} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,x={sx},y={sy},z={sz},distance=..40]"
+  # the house, north of the yard: 7x7 outside, a plank floor, walls three high, a flat roof; 5x5 inside
+  - "fill {sx-3} {sy-1} {sz-11} {sx+3} {sy+3} {sz-5} minecraft:spruce_planks hollow"
+  - "setblock {sx} {sy} {sz-5} minecraft:spruce_door[facing=south,half=lower]"
+  - "setblock {sx} {sy+1} {sz-5} minecraft:spruce_door[facing=south,half=upper]"
+  - "setblock {sx-2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx+2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx-3} {sy+1} {sz-7} minecraft:glass"
+  - "setblock {sx+3} {sy+1} {sz-7} minecraft:glass"
+  - "setblock {sx-1} {sy+1} {sz-4} minecraft:wall_torch[facing=south]"
+  - "setblock {sx+1} {sy+1} {sz-4} minecraft:wall_torch[facing=south]"
+  - "setblock {sx-2} {sy+1} {sz-9} minecraft:wall_torch[facing=east]"
+  - "setblock {sx+2} {sy+1} {sz-9} minecraft:wall_torch[facing=west]"
+  # along the north wall: the vault (the metal, and copper that is no use), the ender chest, the tool chest
+  - "setblock {sx-2} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:${vault.a}\",count:${vault.an}}},{{Slot:1b,id:\"minecraft:${vault.b}\",count:${vault.bn}}},{{Slot:2b,id:\"minecraft:${vault.c}\",count:${vault.cn}}},{{Slot:3b,id:\"minecraft:${vault.d}\",count:${vault.dn}}},{{Slot:4b,id:\"minecraft:copper_block\",count:4}}]}}"
+  - "setblock {sx} {sy} {sz-10} minecraft:ender_chest[facing=south]"
+  - "setblock {sx+2} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:diamond_pickaxe\",count:1}},{{Slot:1b,id:\"minecraft:iron_pickaxe\",count:1}},{{Slot:2b,id:\"minecraft:iron_shovel\",count:1}},{{Slot:3b,id:\"minecraft:${water}\",count:1}},{{Slot:4b,id:\"minecraft:coal\",count:3}},{{Slot:5b,id:\"minecraft:crying_obsidian\",count:4}},{{Slot:6b,id:\"minecraft:light_blue_stained_glass\",count:8}}]}}"
+  # the trophy frame over the ender chest, and the ender chest's contents (the bot's own: a player's, not a block's)
+  - "summon minecraft:item_frame {sx} {sy+1} {sz-10} {{Facing:3b,Item:{{id:\"minecraft:${star.frame}\",count:1}}}}"
+  - "item replace entity {bot} enderchest.13 with minecraft:${star.ender}"
+  # the workshop: a crafting table, and a furnace with nothing in it
+  - "setblock {sx+2} {sy} {sz-7} minecraft:crafting_table"
+  - "setblock {sx-2} {sy} {sz-7} minecraft:furnace[facing=east]"
+  # the pond, south-west: 4x4 of water two deep in a beach of sand
+  - "fill {sx-15} {sy-3} {sz+4} {sx-8} {sy-1} {sz+11} minecraft:sand"
+  - "fill {sx-13} {sy-2} {sz+6} {sx-10} {sy-1} {sz+9} minecraft:water"
+  # the lava pool, east: 3x2 of lava sources at ground level in a stone basin
+  - "fill {sx+9} {sy-3} {sz-4} {sx+13} {sy-1} {sz} minecraft:stone"
+  - "fill {sx+10} {sy-1} {sz-3} {sx+12} {sy-1} {sz-2} minecraft:lava"
+  - "tp {bot} {sx} {sy} {sz}"
+stats: [deaths, damage_taken, "mined:obsidian", "crafted:glass", "crafted:beacon", "used:diamond_pickaxe",
+        "custom:interact_with_beacon", "custom:open_enderchest"]
+grader:
+  kind: milestones
+  required: [lit, powered, house_intact, alive]
+  steps:
+    - {name: obsidian, weight: 1, check: {kind: stat, name: "mined:obsidian", min: 3}}
+    - {name: glass,    weight: 1, check: {kind: stat, name: "crafted:glass", min: 5}}
+    - {name: crafted,  weight: 2, check: {kind: stat, name: "crafted:beacon", min: 1}}
+    - name: lit
+      weight: 4
+      says: "a beacon in the yard that is lit: a full base of metal blocks under it and open sky above"
+      agent_check: {kind: beacon, min_levels: 1}
+      check:
+        kind: functional
+        steps:
+          - {assert: "execute if block {find:beacon} minecraft:beacon unless data block {find:beacon} {{Levels:0}}", within: 6}
+    - name: powered
+      weight: 3
+      says: "the beacon's power set to ${power.words}"
+      agent_check: {kind: beacon, primary: "${power.id}"}
+      check:
+        kind: functional
+        steps:
+          - {assert: "execute if data block {find:beacon} {{primary_effect:\"minecraft:${power.id}\"}}"}
+    - name: house_intact
+      weight: 2
+      says: "nothing of the house broken or changed (the furnace and crafting table may be moved)"
+      check: {kind: intact, of: setup, exclude: [furnace, crafting_table]}
+    - {name: alive, weight: 2, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and a setup run over RCON
+max_turns: 30
+max_seconds: 600
+exec_timeout: 180
+tags: [tier-d, survival, crafting, smelting, containers, base, planning, late_game]

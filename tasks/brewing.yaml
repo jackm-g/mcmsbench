@@ -1,0 +1,118 @@
+# Brewing from nothing: three potions of one kind, asked for by name, put in a chest at a brewery that has no brewing
+# stand. A late-game process whose order is the test: the stand crafted (a blaze rod and three cobblestone, mined from
+# the outcrop), fuelled (blaze powder, from the other rod), three glass bottles crafted (from the three glass in the
+# supply chest, the only glass there is besides the hut's windows) and filled at the pond, then four brews in turn:
+# nether wart (harvested from the soul sand bed) for awkward potions, the effect's ingredient, its modifier (redstone
+# from the ore, or glowstone dust from the block in the outcrop), and gunpowder for a splash potion. An ingredient
+# brewed into water bottles makes mundane potions, and the bottles are not there to start again.
+#
+# The materials are the same in every instance: only the request varies, so what the pantry holds says nothing about
+# what to brew. The pantry chest holds every effect ingredient the variants need and some none does (a slime ball, a
+# gold ingot and a carrot, a rabbit's foot, gunpowder, a ghast tear, a phantom membrane, a spider eye and a fermented
+# one, which turns a potion into its harmful opposite); the barrel holds fish (one pufferfish); sugar cane grows by the
+# pond and a melon sits in the garden. Some ingredients are crafted first: magma cream (slime ball and blaze powder),
+# a golden carrot (carrot and eight nuggets of the ingot), a glistering melon slice (a melon slice and eight nuggets),
+# sugar. The two blaze rods are exactly enough: one for the stand, one for two powder (fuel, and the magma cream or the
+# Strength ingredient); a trial that turns both into powder cannot build the stand.
+#
+# The flat arena (peaceful, a frozen day). A brewing stand counts its brew time down on each tick, which the server runs
+# while a player is on (the bench's observer and the bot): every chain here was brewed on the flat arena on 2026-10-09,
+# each to the ids graded, water -> awkward -> base -> modifier -> splash, twenty seconds a step.
+#
+# Graded from the server: the potion chest by the hut's door holds at least three of the asked potion, in the asked
+# form (drinkable or splash), its contents read from the chest's NBT (a long Fire Resistance is
+# minecraft:long_fire_resistance; a splash one is a minecraft:splash_potion item); the hut intact (the stand's
+# materials and the garden may be used); alive. Scored: the right potion in either form, the stand crafted, a brew
+# started. The functional parts carry `agent_check`s: the chest, the item and the potion id an agent can read.
+#
+# Params (variants.py): the public instance is three drinkable long Fire Resistance. The varied and held-out splits
+# draw the potion (seven, each with its own ingredient and modifier) and the form (drinkable or splash).
+params:
+  potion:
+    default: {id: long_fire_resistance, words: "Fire Resistance, the long 8-minute kind"}
+    choices:
+      - {id: long_fire_resistance, words: "Fire Resistance, the long 8-minute kind"}
+      - {id: long_night_vision, words: "Night Vision, the long 8-minute kind"}
+      - {id: strong_swiftness, words: "Swiftness II"}
+      - {id: long_water_breathing, words: "Water Breathing, the long 8-minute kind"}
+      - {id: strong_strength, words: "Strength II"}
+      - {id: strong_healing, words: "Healing II"}
+      - {id: long_leaping, words: "Leaping, the long 8-minute kind"}
+  form:
+    default: {item: potion, words: "potions"}
+    choices:
+      - {item: potion, words: "potions"}
+      - {item: splash_potion, words: "splash potions"}
+prompt: >-
+  I've got a big trip coming up. Brew me three ${form.words} of ${potion.words}, and put them in the empty chest by the
+  door of the brewery hut. I never got round to building a brewing stand, but everything you need is around the place.
+  Don't take the hut apart.
+setup:
+  # the brewery hut, north: 7x7 outside, a plank floor, walls three high, a flat roof; 5x5 inside
+  - "fill {sx-3} {sy-1} {sz-11} {sx+3} {sy+3} {sz-5} minecraft:spruce_planks hollow"
+  - "setblock {sx} {sy} {sz-5} minecraft:spruce_door[facing=south,half=lower]"
+  - "setblock {sx} {sy+1} {sz-5} minecraft:spruce_door[facing=south,half=upper]"
+  - "setblock {sx-2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx+2} {sy+1} {sz-5} minecraft:glass"
+  - "setblock {sx-3} {sy+1} {sz-8} minecraft:glass"
+  - "setblock {sx+3} {sy+1} {sz-8} minecraft:glass"
+  # inside: the supply chest (the stand's rods, the glass, a pickaxe), the pantry, the fish barrel, a crafting table,
+  # and the empty potion chest by the door
+  - "setblock {sx-2} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:blaze_rod\",count:2}},{{Slot:1b,id:\"minecraft:glass\",count:3}},{{Slot:2b,id:\"minecraft:iron_pickaxe\",count:1}}]}}"
+  - "setblock {sx+2} {sy} {sz-10} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:slime_ball\",count:1}},{{Slot:1b,id:\"minecraft:gold_ingot\",count:1}},{{Slot:2b,id:\"minecraft:carrot\",count:1}},{{Slot:3b,id:\"minecraft:rabbit_foot\",count:1}},{{Slot:4b,id:\"minecraft:gunpowder\",count:1}},{{Slot:5b,id:\"minecraft:ghast_tear\",count:1}},{{Slot:6b,id:\"minecraft:phantom_membrane\",count:1}},{{Slot:7b,id:\"minecraft:spider_eye\",count:1}},{{Slot:8b,id:\"minecraft:fermented_spider_eye\",count:1}}]}}"
+  - "setblock {sx-2} {sy} {sz-7} minecraft:barrel[facing=east]{{Items:[{{Slot:0b,id:\"minecraft:cod\",count:3}},{{Slot:1b,id:\"minecraft:salmon\",count:3}},{{Slot:2b,id:\"minecraft:pufferfish\",count:1}},{{Slot:3b,id:\"minecraft:tropical_fish\",count:1}}]}}"
+  - "setblock {sx+2} {sy} {sz-8} minecraft:crafting_table"
+  - "setblock {sx+2} {sy} {sz-6} minecraft:chest[facing=west]"
+  # the garden, west of the hut: mature nether wart on a bed of soul sand, and a melon
+  - "fill {sx-9} {sy-1} {sz-9} {sx-7} {sy-1} {sz-9} minecraft:soul_sand"
+  - "fill {sx-9} {sy} {sz-9} {sx-7} {sy} {sz-9} minecraft:nether_wart[age=3]"
+  - "setblock {sx-8} {sy} {sz-6} minecraft:melon"
+  # the pond, south-west: 3x3 of water in the ground, sugar cane on its west and east banks
+  - "fill {sx-10} {sy-1} {sz+4} {sx-8} {sy-1} {sz+6} minecraft:water"
+  - "fill {sx-11} {sy} {sz+5} {sx-11} {sy+2} {sz+5} minecraft:sugar_cane"
+  - "fill {sx-7} {sy} {sz+5} {sx-7} {sy+1} {sz+5} minecraft:sugar_cane"
+  # the outcrop, east: stone two high, redstone ore and a glowstone block in its west face
+  - "fill {sx+8} {sy} {sz-6} {sx+12} {sy+1} {sz-2} minecraft:stone"
+  - "setblock {sx+8} {sy} {sz-4} minecraft:redstone_ore"
+  - "setblock {sx+8} {sy+1} {sz-3} minecraft:glowstone"
+  - "tp {bot} {sx} {sy} {sz}"
+stats: [deaths, "crafted:brewing_stand", "crafted:blaze_powder", "crafted:glass_bottle", "mined:nether_wart",
+        "custom:interact_with_brewingstand"]
+grader:
+  kind: milestones
+  required: [delivered, hut_intact, alive]
+  steps:
+    - {name: stand,   weight: 1, check: {kind: stat, name: "crafted:brewing_stand", min: 1}}
+    - {name: brewing, weight: 1, check: {kind: stat, name: "custom:interact_with_brewingstand", min: 1}}
+    - name: right_potion
+      weight: 2
+      says: "at least three potions of ${potion.words} in the potion chest, drinkable or splash"
+      agent_check: {kind: container, at: "{sx+2} {sy} {sz-6}", items: {"*potion": 3}, potion: "${potion.id}"}
+      check:
+        kind: functional
+        steps:
+          - {do: "scoreboard objectives add bench_potions dummy"}
+          - {do: "execute store result score #potions bench_potions if data block {sx+2} {sy} {sz-6} Items[{{components:{{\"minecraft:potion_contents\":{{potion:\"minecraft:${potion.id}\"}}}}}}]"}
+          - {assert: "execute if score #potions bench_potions matches 3.."}
+        cleanup: ["scoreboard objectives remove bench_potions"]
+    - name: delivered
+      weight: 4
+      says: "at least three ${form.words} of ${potion.words} in the empty chest by the hut's door"
+      agent_check: {kind: container, at: "{sx+2} {sy} {sz-6}", items: {"${form.item}": 3}, potion: "${potion.id}"}
+      check:
+        kind: functional
+        steps:
+          - {do: "scoreboard objectives add bench_potions dummy"}
+          - {do: "execute store result score #potions bench_potions if data block {sx+2} {sy} {sz-6} Items[{{id:\"minecraft:${form.item}\",components:{{\"minecraft:potion_contents\":{{potion:\"minecraft:${potion.id}\"}}}}}}]"}
+          - {assert: "execute if score #potions bench_potions matches 3.."}
+        cleanup: ["scoreboard objectives remove bench_potions"]
+    - name: hut_intact
+      weight: 2
+      says: "nothing of the hut broken or changed (the crafting table may be moved)"
+      check: {kind: intact, of: setup, exclude: [crafting_table, glowstone, soul_sand, nether_wart]}
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and a setup run over RCON
+max_turns: 30
+max_seconds: 600
+exec_timeout: 180
+tags: [tier-d, crafting, brewing, containers, planning, late_game]

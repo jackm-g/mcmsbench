@@ -1,0 +1,232 @@
+# A commission: one late-game item, named and nothing more, made from what is round a base and put in its chest, and
+# halfway through, its key ingredient taken. It measures what a routine written for one item does not: working out a
+# recipe tree from the item's name (each target is a different tree, from the same world), and recovering when the
+# plan breaks. The held-out split draws targets no one has written an errand for.
+#
+# The targets, each a different kind of tree (recipes from minecraft-data 26.1; a netherite sword has no crafting
+# recipe, it is the diamond one upgraded at a smithing table):
+#   enchanting table   a book (paper from sugar cane, the storeroom's leather), 2 diamonds, 4 obsidian (water on lava)
+#   ender chest        8 obsidian (water on lava), an eye of ender (the pearl, and powder from the blaze rod)
+#   respawn anchor     6 crying obsidian (the old portal west, a diamond pickaxe), 3 glowstone (dust from the outcrop)
+#   spyglass           2 copper ingots (the raw copper smelted), an amethyst shard (the cluster by the hut)
+#   end crystal        7 glass (the pond's sand smelted), an eye of ender, the storeroom's ghast tear
+#   netherite sword    the diamond sword, the upgrade template and a netherite ingot (4 scrap smelted from the debris
+#                      pile, 4 gold) at a smithing table (2 iron, 4 planks from the log pile)
+#   recovery compass   the storeroom's 8 echo shards, a compass (4 iron, redstone from the outcrop's ore)
+# Every source is there in every instance, with decoys among them (prismarine shards, nautilus shells, quartz,
+# rabbit hide short of a leather, amethyst blocks that drop themselves, the portal's plain obsidian), so what lies
+# about says nothing of what to make.
+#
+# The disruption: Sam, the base's other player, takes the target's key ingredient from the bot, and its first source
+# with it. The event waits `after` seconds, then fires as soon as the bot carries the ingredient (or, at 150 s, if it
+# never has): the ingredient is cleared from its inventory (every form of it: debris, scrap and ingot for the sword),
+# the first source is spent (the storeroom's slot emptied, the lava pool used, the portal's crying obsidian, the
+# cluster, the debris pile mined out), and Sam says what he took, not where more is. A second source is always on the
+# plot, farther off: diamond ore in the outcrop, a second lava pool north-east, a second ruined portal south (with a
+# loot barrel: a ghast tear, echo shards), a second debris pile north-west, a second amethyst cluster south-east. The
+# trigger keeps its own clock on the server (the game time at the agent's start, in an objective), since an event's
+# test cannot read the bench's. A bot that made and delivered the item before the event could fire is not disrupted
+# (the record's events say so).
+#
+# The flat arena, 48 across (peaceful, a frozen day; the game clock runs while anyone is on). Everything below the
+# plot's air is in the floor layer the reset restores (the pond, the pools, the beach, the portals' netherrack).
+#
+# Graded from the server: the item in the empty chest inside the hut's door, the hut intact (the sources and the
+# workshop may be used), alive: all required. Scored: the item made (its crafted counter: smithing counts), and the
+# second source used (its counter).
+#
+# Params (variants.py): the public instance is the enchanting table, disrupted from 60 s. The varied and held-out
+# splits draw the target (seven) and when the disruption may first fire (45, 60 or 90 s).
+params:
+  target:
+    default:
+      id: enchanting_table
+      words: "an enchanting table"
+      k1: diamond
+      k2: diamond
+      k3: diamond
+      gone1: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
+      gone2: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
+      say: "sorry! I took the diamonds, yours and the ones in the storeroom chest, for a pickaxe. you'll have to find more"
+      s_stat: "mined:diamond_ore"
+      s_min: 1
+    choices:
+      - id: enchanting_table
+        words: "an enchanting table"
+        k1: diamond
+        k2: diamond
+        k3: diamond
+        gone1: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
+        gone2: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
+        say: "sorry! I took the diamonds, yours and the ones in the storeroom chest, for a pickaxe. you'll have to find more"
+        s_stat: "mined:diamond_ore"
+        s_min: 1
+      - id: ender_chest
+        words: "an ender chest"
+        k1: obsidian
+        k2: obsidian
+        k3: obsidian
+        gone1: "fill {sx+9} {sy-1} {sz-3} {sx+11} {sy-1} {sz-1} minecraft:stone replace minecraft:lava"
+        gone2: "fill {sx+9} {sy-1} {sz-3} {sx+11} {sy-1} {sz-1} minecraft:stone replace minecraft:obsidian"
+        say: "sorry! I needed obsidian for my portal, so I took yours and used up the lava pool by the hut. you'll have to find more"
+        s_stat: "mined:obsidian"
+        s_min: 10
+      - id: respawn_anchor
+        words: "a respawn anchor"
+        k1: crying_obsidian
+        k2: crying_obsidian
+        k3: crying_obsidian
+        gone1: "fill {sx-12} {sy} {sz-4} {sx-9} {sy+1} {sz-4} minecraft:air replace minecraft:crying_obsidian"
+        gone2: "fill {sx-12} {sy} {sz-4} {sx-9} {sy+1} {sz-4} minecraft:air replace minecraft:crying_obsidian"
+        say: "sorry! I took the crying obsidian, what you had and what was left in the old portal west of the hut. you'll have to find more"
+        s_stat: "mined:crying_obsidian"
+        s_min: 7
+      - id: spyglass
+        words: "a spyglass"
+        k1: amethyst_shard
+        k2: amethyst_shard
+        k3: amethyst_shard
+        gone1: "setblock {sx-6} {sy+1} {sz+2} minecraft:air"
+        gone2: "setblock {sx-6} {sy+1} {sz+2} minecraft:air"
+        say: "sorry! I took your amethyst shards, and the cluster by the hut, for some tinted glass. you'll have to find more"
+        s_stat: "mined:amethyst_cluster"
+        s_min: 2
+      - id: end_crystal
+        words: "an end crystal"
+        k1: ghast_tear
+        k2: ghast_tear
+        k3: ghast_tear
+        gone1: "item replace block {sx-3} {sy} {sz-11} container.4 with minecraft:air"
+        gone2: "item replace block {sx-3} {sy} {sz-11} container.4 with minecraft:air"
+        say: "sorry! I took the ghast tear from the storeroom for a potion. you'll have to find another"
+        s_stat: "custom:open_barrel"
+        s_min: 1
+      - id: netherite_sword
+        words: "a netherite sword, the diamond one in the storeroom upgraded"
+        k1: ancient_debris
+        k2: netherite_scrap
+        k3: netherite_ingot
+        gone1: "fill {sx+4} {sy} {sz+2} {sx+7} {sy} {sz+2} minecraft:netherrack replace minecraft:ancient_debris"
+        gone2: "fill {sx+4} {sy} {sz+2} {sx+7} {sy} {sz+2} minecraft:netherrack replace minecraft:ancient_debris"
+        say: "sorry! I took your netherite, and the debris left in the pile by the hut, for my armour. you'll have to find more"
+        s_stat: "mined:ancient_debris"
+        s_min: 5
+      - id: recovery_compass
+        words: "a recovery compass"
+        k1: echo_shard
+        k2: echo_shard
+        k3: echo_shard
+        gone1: "item replace block {sx-3} {sy} {sz-11} container.5 with minecraft:air"
+        gone2: "item replace block {sx-3} {sy} {sz-11} container.5 with minecraft:air"
+        say: "sorry! I took the echo shards, yours and the storeroom's. you'll have to find more"
+        s_stat: "custom:open_barrel"
+        s_min: 1
+  after: {default: 60, choices: [45, 60, 90]}
+prompt: >-
+  I need ${target.words}. Make it from whatever's round the base and put it in the empty chest just inside the hut's
+  door. Sam's about too, working on his own stuff. Don't take the hut apart.
+world: {size: 48}
+players:
+  - {name: Sam, at: "{sx+6} {sy} {sz-8}"}      # outside the hut, east
+setup:
+  # the hut, north: 9x7 outside, a plank floor, walls three high, a flat roof; 7x5 inside
+  - "fill {sx-4} {sy-1} {sz-12} {sx+4} {sy+3} {sz-6} minecraft:spruce_planks hollow"
+  - "setblock {sx} {sy} {sz-6} minecraft:spruce_door[facing=south,half=lower]"
+  - "setblock {sx} {sy+1} {sz-6} minecraft:spruce_door[facing=south,half=upper]"
+  - "setblock {sx-2} {sy+1} {sz-6} minecraft:glass"
+  - "setblock {sx+2} {sy+1} {sz-6} minecraft:glass"
+  - "setblock {sx-4} {sy+1} {sz-9} minecraft:glass"
+  - "setblock {sx+4} {sy+1} {sz-9} minecraft:glass"
+  # the storeroom chest (north-west), with the decoys; the tool chest (north-east); the workshop; the empty commission
+  # chest just inside the door
+  - "setblock {sx-3} {sy} {sz-11} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:diamond\",count:2}},{{Slot:1b,id:\"minecraft:leather\",count:1}},{{Slot:2b,id:\"minecraft:ender_pearl\",count:1}},{{Slot:3b,id:\"minecraft:blaze_rod\",count:1}},{{Slot:4b,id:\"minecraft:ghast_tear\",count:1}},{{Slot:5b,id:\"minecraft:echo_shard\",count:8}},{{Slot:6b,id:\"minecraft:raw_copper\",count:2}},{{Slot:7b,id:\"minecraft:gold_ingot\",count:8}},{{Slot:8b,id:\"minecraft:iron_ingot\",count:4}},{{Slot:9b,id:\"minecraft:diamond_sword\",count:1}},{{Slot:10b,id:\"minecraft:netherite_upgrade_smithing_template\",count:1}},{{Slot:11b,id:\"minecraft:prismarine_shard\",count:4}},{{Slot:12b,id:\"minecraft:nautilus_shell\",count:3}},{{Slot:13b,id:\"minecraft:quartz\",count:8}},{{Slot:14b,id:\"minecraft:rabbit_hide\",count:2}}]}}"
+  - "setblock {sx+3} {sy} {sz-11} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:diamond_pickaxe\",count:1}},{{Slot:1b,id:\"minecraft:iron_pickaxe\",count:1}},{{Slot:2b,id:\"minecraft:iron_shovel\",count:1}},{{Slot:3b,id:\"minecraft:water_bucket\",count:1}},{{Slot:4b,id:\"minecraft:coal\",count:8}}]}}"
+  - "setblock {sx+3} {sy} {sz-8} minecraft:crafting_table"
+  - "setblock {sx-3} {sy} {sz-8} minecraft:furnace[facing=east]"
+  - "setblock {sx+3} {sy} {sz-7} minecraft:chest[facing=west]"
+  # the log pile, west of the hut
+  - "fill {sx-6} {sy} {sz-10} {sx-6} {sy+1} {sz-9} minecraft:oak_log"
+  # the pond, south-west: 4x4 of water in a beach of sand, sugar cane on two banks
+  - "fill {sx-18} {sy-1} {sz+6} {sx-11} {sy-1} {sz+13} minecraft:sand"
+  - "fill {sx-16} {sy-1} {sz+8} {sx-13} {sy-1} {sz+11} minecraft:water"
+  - "fill {sx-17} {sy} {sz+9} {sx-17} {sy+2} {sz+9} minecraft:sugar_cane"
+  - "fill {sx-12} {sy} {sz+10} {sx-12} {sy+1} {sz+10} minecraft:sugar_cane"
+  # the lava pool by the hut, east (the first source of obsidian): 3x3 in a stone rim
+  - "fill {sx+8} {sy-1} {sz-4} {sx+12} {sy-1} {sz} minecraft:stone"
+  - "fill {sx+9} {sy-1} {sz-3} {sx+11} {sy-1} {sz-1} minecraft:lava"
+  # the second lava pool, far north-east
+  - "fill {sx+16} {sy-1} {sz-20} {sx+20} {sy-1} {sz-16} minecraft:stone"
+  - "fill {sx+17} {sy-1} {sz-19} {sx+19} {sy-1} {sz-17} minecraft:lava"
+  # the outcrop, south-east: stone, two diamond ore and a redstone ore in its west face, glowstone along its north face
+  - "fill {sx+10} {sy} {sz+8} {sx+16} {sy+2} {sz+13} minecraft:stone"
+  - "setblock {sx+10} {sy} {sz+9} minecraft:diamond_ore"
+  - "setblock {sx+10} {sy+1} {sz+11} minecraft:diamond_ore"
+  - "setblock {sx+10} {sy} {sz+12} minecraft:redstone_ore"
+  - "fill {sx+11} {sy} {sz+8} {sx+14} {sy+1} {sz+8} minecraft:glowstone"
+  # the old portal, west (the first source of crying obsidian): six crying and three plain on netherrack
+  - "fill {sx-13} {sy-1} {sz-5} {sx-8} {sy-1} {sz-3} minecraft:netherrack"
+  - "fill {sx-12} {sy} {sz-4} {sx-9} {sy} {sz-4} minecraft:crying_obsidian"
+  - "setblock {sx-12} {sy+1} {sz-4} minecraft:crying_obsidian"
+  - "setblock {sx-9} {sy+1} {sz-4} minecraft:crying_obsidian"
+  - "setblock {sx-12} {sy+2} {sz-4} minecraft:obsidian"
+  - "setblock {sx-9} {sy+2} {sz-4} minecraft:obsidian"
+  - "setblock {sx-11} {sy+3} {sz-4} minecraft:obsidian"
+  # the second portal, far south, with its loot barrel
+  - "fill {sx-5} {sy-1} {sz+18} {sx} {sy-1} {sz+20} minecraft:netherrack"
+  - "fill {sx-4} {sy} {sz+19} {sx-1} {sy} {sz+19} minecraft:crying_obsidian"
+  - "setblock {sx-4} {sy+1} {sz+19} minecraft:crying_obsidian"
+  - "setblock {sx-1} {sy+1} {sz+19} minecraft:crying_obsidian"
+  - "setblock {sx-4} {sy+2} {sz+19} minecraft:crying_obsidian"
+  - "setblock {sx+2} {sy} {sz+19} minecraft:barrel[facing=up]{{Items:[{{Slot:0b,id:\"minecraft:ghast_tear\",count:1}},{{Slot:1b,id:\"minecraft:echo_shard\",count:8}},{{Slot:2b,id:\"minecraft:gold_nugget\",count:5}},{{Slot:3b,id:\"minecraft:iron_nugget\",count:9}},{{Slot:4b,id:\"minecraft:flint\",count:3}}]}}"
+  # the debris pile by the hut, south-east (the first source of netherite), and the second, far north-west
+  - "fill {sx+4} {sy} {sz+2} {sx+7} {sy} {sz+4} minecraft:netherrack"
+  - "fill {sx+4} {sy} {sz+2} {sx+7} {sy} {sz+2} minecraft:ancient_debris"
+  - "fill {sx-21} {sy} {sz-20} {sx-18} {sy} {sz-18} minecraft:netherrack"
+  - "fill {sx-21} {sy} {sz-18} {sx-18} {sy} {sz-18} minecraft:ancient_debris"
+  # amethyst: a cluster on a block by the hut (the first source of shards), and one far south-east among plain blocks
+  - "setblock {sx-6} {sy} {sz+2} minecraft:amethyst_block"
+  - "setblock {sx-6} {sy+1} {sz+2} minecraft:amethyst_cluster[facing=up]"
+  - "fill {sx+19} {sy} {sz+19} {sx+21} {sy} {sz+21} minecraft:amethyst_block"
+  - "setblock {sx+20} {sy+1} {sz+20} minecraft:amethyst_cluster[facing=up]"
+  - "tp {bot} {sx} {sy} {sz}"
+events:
+  - at: 0       # the trigger's clock: the game time when the agent is on
+    run: ["scoreboard objectives add bench_cm dummy", "execute store result score #t0 bench_cm run time query gametime"]
+  - at: ${after}      # Sam takes the ingredient once the bot carries it, or at 150 s, and spends its first source
+    when:
+      - "execute store result score #k bench_cm if entity @a[name={bot},nbt={{Inventory:[{{id:\"minecraft:${target.k1}\"}}]}}]"
+      - "execute if entity @a[name={bot},nbt={{Inventory:[{{id:\"minecraft:${target.k2}\"}}]}}] run scoreboard players set #k bench_cm 1"
+      - "execute if entity @a[name={bot},nbt={{Inventory:[{{id:\"minecraft:${target.k3}\"}}]}}] run scoreboard players set #k bench_cm 1"
+      - "execute store result score #now bench_cm run time query gametime"
+      - "scoreboard players operation #now bench_cm -= #t0 bench_cm"
+      - "execute if score #now bench_cm matches 3000.. run scoreboard players set #k bench_cm 1"
+      - "execute if score #k bench_cm matches 1.."
+    run: ["clear {bot} minecraft:${target.k1}", "clear {bot} minecraft:${target.k2}", "clear {bot} minecraft:${target.k3}",
+          "${target.gone1}", "${target.gone2}"]
+  - {at: ${after}, say: "${target.say}"}
+stats: [deaths, "crafted:${target.id}", "mined:obsidian", "mined:crying_obsidian", "mined:ancient_debris",
+        "mined:diamond_ore", "mined:amethyst_cluster", "custom:open_barrel"]
+grader:
+  kind: milestones
+  required: [delivered, hut_intact, alive]
+  steps:
+    - {name: made, weight: 2, check: {kind: stat, name: "crafted:${target.id}", min: 1}}
+    - name: second_source
+      weight: 2
+      says: "the ingredient Sam took found again, from another source on the plot"
+      check: {kind: stat, name: "${target.s_stat}", min: ${target.s_min}}
+    - name: delivered
+      weight: 5
+      says: "${target.words} in the empty chest just inside the hut's door"
+      check: {kind: container, at: "{sx+3} {sy} {sz-7}", items: {${target.id}: 1}}
+    - name: hut_intact
+      weight: 2
+      says: "nothing of the hut broken or changed (the sources and the workshop may be used)"
+      check: {kind: intact, of: setup, exclude: [crafting_table, furnace, glowstone, crying_obsidian, obsidian,
+                                                  ancient_debris, amethyst_cluster, amethyst_block, barrel]}
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests and a setup run over RCON
+max_turns: 30
+max_seconds: 600
+exec_timeout: 180
+tags: [tier-d, crafting, smelting, containers, planning, recovery, late_game]

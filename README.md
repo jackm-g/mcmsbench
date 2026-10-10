@@ -16,7 +16,7 @@ No agent ships with the bench. You bring your own (see [Adding an agent](#adding
 
 | | |
 |---|---|
-| `tasks/*.yaml` | 66 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat |
+| `tasks/*.yaml` | 75 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway |
 | `profiles/*.yaml` | defaults a task inherits (`prod`: a hard, snowy server with spawn protection; `farmstead`) |
 | `infra/docker-compose.yml` | the arenas: a superflat server, and survival servers restored from `infra/worlds/<seed>.tar` |
 | `src/mcmsbench/` | the runner, the protocol, the observer, the graders, reports and the compare page |
@@ -138,7 +138,9 @@ mcmsbench run --agent myagent --split heldout --tag variants --trials 5
 
 Tasks with params today: `multi_room_house` (size, rooms a floor, windows, wood), `two_story_house` (footprint,
 fittings, wood), `tower_under_threat` (size, height, where the bot starts, the two at the site), `helping_pat` (the
-friend's name, the counts, the camp), `housesitter_beetroot` (the crop, how many) and `nether_highway` (the cargo).
+friend's name, the counts, the camp), `housesitter_beetroot` (the crop, how many), `nether_highway` (the cargo),
+`beacon` (the vault's mix of metal, where the star is, a full or empty bucket, the power), `brewing` (the potion,
+drinkable or splash) and `commission` (the item asked for, of seven, and when its key ingredient may be taken).
 `mcmsbench tasks` lists each one's params.
 
 Keep the held-out split held out:
