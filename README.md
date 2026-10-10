@@ -50,7 +50,7 @@ and delete the survival world.
 
 ```
 mcmsbench run --agent NAME --task ID [--task ID ...] | --all [--tag T]   run trials
-mcmsbench heldout init | rotate | id                                    the held-out split's secret key (in .env)
+mcmsbench heldout init | rotate | id                                    the held-out split's secret key (in .env), its pack
 mcmsbench agents                                                        manifests on the agent path, and whether each is installed
 mcmsbench tasks [--tag T]                                               the tasks
 mcmsbench goal --task ID [--trial N] [--split S [--reveal]]             the goal file a task makes (no server needed)
@@ -79,8 +79,10 @@ mcmsbench probe slice|top --x A [B] --z C [D] --y LO HI [--dimension D] [--load]
 
 ## How a trial runs
 
-1. **Reset.** A flat plot is cleared with `/fill`. A survival world is restored from its snapshot and the server is
-   restarted.
+1. **Reset.** A flat plot is cleared with `/fill`, and an overworld one fenced: a world border 8 blocks outside it
+   for the trial (`fence` in `mcmsbench.toml`; the superflat past a plot is empty, and an agent looking there for what
+   the plot lacks walked 230 blocks out). The border is the server's, so two runs at once on one flat arena would move
+   each other's. A survival world is restored from its snapshot and the server is restarted.
 2. **Observe.** A spectator observer client snapshots the plot.
 3. **Set up.** A stand-in client logs in as the trial's player. RCON places it at the start, gives it the task's
    inventory and runs the task's setup. A task's scripted players (`players:`, the other people on the server) log in
@@ -101,7 +103,7 @@ mcmsbench probe slice|top --x A [B] --z C [D] --y LO HI [--dimension D] [--load]
 
 ```
 runs/<stamp>-<agent>/
-  summary.json, index.html        per task: pass rate, mean score, seconds, turns, cost, errors
+  summary.json, index.html        per task: pass rate, mean score, seconds, turns, cost, errors, loops, quiet_s
   <task>/
     trial_N.json                  the record: verdict and grader detail, the agent's trace, final server reads,
                                   snapshots, the position track, what broke, `bench`, `caveats`
@@ -110,6 +112,12 @@ runs/<stamp>-<agent>/
     trial_N_agent.json(l)         the agent's own --out and --log
     trial_N.html, trial_N_frames/ the report: frames, final views, a timelapse
 ```
+
+Beside the score, never in it, each record's `trace.loops` (`src/mcmsbench/loops.py`) says how the time went:
+`loops`, the steps the agent did three times or more (its subgoal events, numbers and directions aside: "Explore
+north" and "Explore west" are one step); `repeated_failures`; `quiet_s`, the longest stretch with no milestone first
+reached (the grader's own timing); and on a flat plot `off_plot_s`. The summary and the compare page show the mean
+loops and quiet_s per task. A pass after minutes of digging into bedrock is a pass; this is where it shows.
 
 Each record's `bench` block carries the bench's git sha, the protocol version, a hash of the task as it ran (profile
 included), and a hash of the agent's manifest. `compare` warns when two columns ran different versions of a task.
@@ -143,9 +151,29 @@ friend's name, the counts, the camp), `housesitter_beetroot` (the crop, how many
 drinkable or splash) and `commission` (the item asked for, of seven, and when its key ingredient may be taken).
 `mcmsbench tasks` lists each one's params.
 
+A task file is public, and so are the domains in it: an agent developed on the public and varied instances may have
+seen every value a held-out draw can take (commission's seven targets all appear in its first eight). A **held-out
+pack** is what makes the split unseen: a directory never committed (`MCMSBENCH_HELDOUT_DIR` in `.env`, else `heldout/`
+in the checkout, which git ignores) of `<task>.yaml` files, each giving that task's held-out split its own domains,
+with the same fields as the file's, and setup lines for what they need:
+
+```yaml
+# heldout/commission.yaml
+params:
+  target:
+    choices:
+      - {id: anvil, words: "an anvil", k1: iron_block, ..., made: "crafted:anvil", s_stat: ..., s_min: 1}
+setup:
+  - "setblock {sx+5} {sy} {sz+5} minecraft:iron_ore"
+```
+
+Each held-out trial records its pack's id (`bench.pack_id`), and the compare page keeps packs apart. A held-out trial
+drawn from a task file's own domains carries the caveat `public_heldout`. `mcmsbench heldout id` lists the pack.
+
 Keep the held-out split held out:
 
-- The key is in `.env` and nowhere else. The bench never passes it to an agent's process.
+- The key is in `.env` and nowhere else. The bench never passes it, or where the pack is, to an agent's process.
+- The pack is outside git, and outside any directory an agent's developer works in.
 - A run's records show the instances it drew (the goal files, `bench.params`). Don't develop an agent against
   held-out records. Once they have been read, `mcmsbench heldout rotate` and treat the old key's scores as spent.
   Every held-out trial records its key's id (`bench.key_id`), so scores from different keys are never mixed.

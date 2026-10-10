@@ -43,6 +43,7 @@ class Plot:
     volume: Volume                 # the air space above the floor that gets cleared and graded
     flat: bool = True              # superflat plot (uniform floor at floor_y) vs terrain
     dimension: str = OVERWORLD     # minecraft:overworld | minecraft:the_nether (flat plots only)
+    fence: int = 0                 # a world border this many blocks outside the plot for the trial (Arena.fence); 0: none
 
     @property
     def floor_y(self) -> int:
@@ -55,8 +56,10 @@ class Plot:
     def describe(self) -> str:
         (x0, y0, z0), (x1, y1, z1) = self.volume.min, self.volume.max
         where = ("You are in a netherrack room in the Nether. " if self.dimension == NETHER else "")
+        edge = (f" A world border stands {self.fence} blocks outside it (x={x0 - self.fence}..{x1 + self.fence}, "
+                f"z={z0 - self.fence}..{z1 + self.fence}): there is nothing past it." if self.fence else "")
         return (f"{where}Your plot is x={x0}..{x1}, z={z0}..{z1}. The ground surface is at y={self.floor_y} "
-                f"(stand on y={y0}); build between y={y0} and y={y1}.")
+                f"(stand on y={y0}); build between y={y0} and y={y1}.{edge}")
 
 
 class Arena:
@@ -76,7 +79,7 @@ class Arena:
         fy = NETHER_FLOOR_Y if dim == NETHER else c.floor_y
         x0, z0 = trial * c.spacing, 0
         vol = Volume((x0, fy + 1, z0), (x0 + size - 1, fy + height, z0 + size - 1))
-        return Plot(trial, (x0, fy, z0), vol, dimension=dim)
+        return Plot(trial, (x0, fy, z0), vol, dimension=dim, fence=c.fence if dim == OVERWORLD else 0)
 
     @staticmethod
     def _in(dimension: str, cmd: str) -> str:
@@ -140,6 +143,25 @@ class Arena:
         if "Successfully" not in out and "No blocks were filled" not in out:
             raise RuntimeError(f"fill failed: {out!r}")
         return out
+
+    # the superflat runs on past a plot's edge, empty, as no survival world does: an agent looking for what the plot
+    # lacks walked 230 blocks out (commission, 2026-10-10). A world border round the plot is the world's edge for the
+    # trial. The server has one border per dimension, so a trial fences the overworld for itself and takes it down
+    # after; two runs at once on one flat arena would move each other's (MCMSBENCH_LOCK_DIR leases survival arenas only).
+    UNFENCED = 59999968            # vanilla's border
+
+    def fence(self, plot: Plot) -> str | None:
+        """A world border `plot.fence` blocks outside an overworld plot; None when it has none."""
+        if not plot.fence or plot.dimension != OVERWORLD:
+            return None
+        (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
+        size = max(x1 - x0, z1 - z0) + 1 + 2 * plot.fence
+        self.rcon(f"worldborder center {(x0 + x1 + 1) / 2} {(z0 + z1 + 1) / 2}")
+        return self.rcon(f"worldborder set {size}")
+
+    def unfence(self) -> None:
+        self.rcon(f"worldborder set {self.UNFENCED}")
+        self.rcon("worldborder center 0 0")
 
     def set_difficulty(self, difficulty: str) -> None:
         """Per task: hostile mobs (piglins, ghasts) are removed on peaceful, so a task that summons

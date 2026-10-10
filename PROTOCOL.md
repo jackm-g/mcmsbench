@@ -81,7 +81,8 @@ The agent must not expect to be op, and it never gets RCON.
   "world": { "type": "survival", "seed": 1, "difficulty": "normal", "daylight": true,
              "dimension": "minecraft:overworld", "keep_inventory": true },
   "plot": { "min": [106, 58, 115], "max": [202, 98, 211], "center": [154, 70, 163], "floor_y": null,
-            "anchor": [106, 58, 115] },     // the graded volume; floor_y on a flat plot; the point {ax..} in prompts
+            "anchor": [106, 58, 115],       // the graded volume; floor_y on a flat plot; the point {ax..} in prompts
+            "border": { "min": [106, 115], "max": [202, 211] } },   // the world border (x, z): nothing past it
   "start": [154, 70, 163],
   "inventory": { "torch": 12 },             // what the player was given
   "budget": { "max_seconds": 900, "max_cost_usd": 5.0 },

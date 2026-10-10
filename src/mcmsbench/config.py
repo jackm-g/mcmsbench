@@ -30,6 +30,7 @@ class ArenaConfig:
     size: int = 32
     height: int = 24
     spacing: int = 256
+    fence: int = 8            # a world border this many blocks outside an overworld plot, for its trial; 0: none
     bot_username: str = "player"
     observer_username: str = "observer"
     rcon_password: str = ""

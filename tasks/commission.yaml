@@ -32,8 +32,9 @@
 # plot's air is in the floor layer the reset restores (the pond, the pools, the beach, the portals' netherrack).
 #
 # Graded from the server: the item in the empty chest inside the hut's door, the hut intact (the sources and the
-# workshop may be used), alive: all required. Scored: the item made (its crafted counter: smithing counts), and the
-# second source used (its counter).
+# workshop may be used), alive: all required. Scored: the item made (its crafted counter; the sword's is the smithing
+# table used, as smithing moves no crafted counter: three delivered swords graded unmade), and the second source used
+# (its counter).
 #
 # Params (variants.py): the public instance is the enchanting table, disrupted from 60 s. The varied and held-out
 # splits draw the target (seven) and when the disruption may first fire (45, 60 or 90 s).
@@ -48,6 +49,7 @@ params:
       gone1: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
       gone2: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
       say: "sorry! I took the diamonds, yours and the ones in the storeroom chest, for a pickaxe. you'll have to find more"
+      made: "crafted:enchanting_table"
       s_stat: "mined:diamond_ore"
       s_min: 1
     choices:
@@ -59,6 +61,7 @@ params:
         gone1: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
         gone2: "item replace block {sx-3} {sy} {sz-11} container.0 with minecraft:air"
         say: "sorry! I took the diamonds, yours and the ones in the storeroom chest, for a pickaxe. you'll have to find more"
+        made: "crafted:enchanting_table"
         s_stat: "mined:diamond_ore"
         s_min: 1
       - id: ender_chest
@@ -69,6 +72,7 @@ params:
         gone1: "fill {sx+9} {sy-1} {sz-3} {sx+11} {sy-1} {sz-1} minecraft:stone replace minecraft:lava"
         gone2: "fill {sx+9} {sy-1} {sz-3} {sx+11} {sy-1} {sz-1} minecraft:stone replace minecraft:obsidian"
         say: "sorry! I needed obsidian for my portal, so I took yours and used up the lava pool by the hut. you'll have to find more"
+        made: "crafted:ender_chest"
         s_stat: "mined:obsidian"
         s_min: 10
       - id: respawn_anchor
@@ -79,6 +83,7 @@ params:
         gone1: "fill {sx-12} {sy} {sz-4} {sx-9} {sy+1} {sz-4} minecraft:air replace minecraft:crying_obsidian"
         gone2: "fill {sx-12} {sy} {sz-4} {sx-9} {sy+1} {sz-4} minecraft:air replace minecraft:crying_obsidian"
         say: "sorry! I took the crying obsidian, what you had and what was left in the old portal west of the hut. you'll have to find more"
+        made: "crafted:respawn_anchor"
         s_stat: "mined:crying_obsidian"
         s_min: 7
       - id: spyglass
@@ -89,6 +94,7 @@ params:
         gone1: "setblock {sx-6} {sy+1} {sz+2} minecraft:air"
         gone2: "setblock {sx-6} {sy+1} {sz+2} minecraft:air"
         say: "sorry! I took your amethyst shards, and the cluster by the hut, for some tinted glass. you'll have to find more"
+        made: "crafted:spyglass"
         s_stat: "mined:amethyst_cluster"
         s_min: 2
       - id: end_crystal
@@ -99,6 +105,7 @@ params:
         gone1: "item replace block {sx-3} {sy} {sz-11} container.4 with minecraft:air"
         gone2: "item replace block {sx-3} {sy} {sz-11} container.4 with minecraft:air"
         say: "sorry! I took the ghast tear from the storeroom for a potion. you'll have to find another"
+        made: "crafted:end_crystal"
         s_stat: "custom:open_barrel"
         s_min: 1
       - id: netherite_sword
@@ -109,6 +116,7 @@ params:
         gone1: "fill {sx+4} {sy} {sz+2} {sx+7} {sy} {sz+2} minecraft:netherrack replace minecraft:ancient_debris"
         gone2: "fill {sx+4} {sy} {sz+2} {sx+7} {sy} {sz+2} minecraft:netherrack replace minecraft:ancient_debris"
         say: "sorry! I took your netherite, and the debris left in the pile by the hut, for my armour. you'll have to find more"
+        made: "custom:interact_with_smithing_table"
         s_stat: "mined:ancient_debris"
         s_min: 5
       - id: recovery_compass
@@ -119,6 +127,7 @@ params:
         gone1: "item replace block {sx-3} {sy} {sz-11} container.5 with minecraft:air"
         gone2: "item replace block {sx-3} {sy} {sz-11} container.5 with minecraft:air"
         say: "sorry! I took the echo shards, yours and the storeroom's. you'll have to find more"
+        made: "crafted:recovery_compass"
         s_stat: "custom:open_barrel"
         s_min: 1
   after: {default: 60, choices: [45, 60, 90]}
@@ -204,13 +213,16 @@ events:
     run: ["clear {bot} minecraft:${target.k1}", "clear {bot} minecraft:${target.k2}", "clear {bot} minecraft:${target.k3}",
           "${target.gone1}", "${target.gone2}"]
   - {at: ${after}, say: "${target.say}"}
-stats: [deaths, "crafted:${target.id}", "mined:obsidian", "mined:crying_obsidian", "mined:ancient_debris",
+stats: [deaths, "${target.made}", "mined:obsidian", "mined:crying_obsidian", "mined:ancient_debris",
         "mined:diamond_ore", "mined:amethyst_cluster", "custom:open_barrel"]
 grader:
   kind: milestones
   required: [delivered, hut_intact, alive]
   steps:
-    - {name: made, weight: 2, check: {kind: stat, name: "crafted:${target.id}", min: 1}}
+    - name: made
+      weight: 2
+      says: "${target.words} made (the sword: upgraded at a smithing table)"
+      check: {kind: stat, name: "${target.made}", min: 1}
     - name: second_source
       weight: 2
       says: "the ingredient Sam took found again, from another source on the plot"

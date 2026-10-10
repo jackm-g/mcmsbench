@@ -82,9 +82,13 @@ def render(trials: list[Trial], out: Path, title: str = "MCMSBench comparison") 
             if not c:
                 P.append("<td class=meta>—</td>"); continue
             P.append(f"<td class='{_pclass(c['pass_rate'])}'><b>{c['passes']}/{c['graded']}</b> <span class=meta>score {f(c['score'])}</span><br>"
-                     f"<span class='meta small'>{f(c['turns'], 1)} turns · {f(c['seconds'], 0, suffix='s')} · {f(c['cost'], 3, '$')}</span></td>")
+                     f"<span class='meta small'>{f(c['turns'], 1)} turns · {f(c['seconds'], 0, suffix='s')} · {f(c['cost'], 3, '$')}</span><br>"
+                     f"<span class='meta small {'warn' if (c.get('loops') or 0) >= 1 else ''}'>{f(c.get('loops'), 1)} loops · "
+                     f"quiet {f(c.get('quiet_s'), 0, suffix='s')}</span></td>")
         P.append("</tr>")
-    P.append("</table>")
+    P.append("</table><p class='meta small'>loops = steps the agent did three times or more (numbers and directions "
+             "aside), a trial's mean · quiet = the longest stretch with no milestone first reached, a trial's mean "
+             "(loops.py; beside the score, never in it)</p>")
 
     # ---------------- per task
     for task in tasks:

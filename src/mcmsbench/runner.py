@@ -22,7 +22,7 @@ from typing import Callable
 
 import yaml
 
-from . import config
+from . import config, loops
 from .arena import Arena, Plot
 from .config import ROOT, Settings
 from .events import EventLog, git_sha
@@ -646,7 +646,8 @@ def build_goal(task: Task, plot: Plot, start: tuple[int, int, int], s: Settings,
                   "keep_inventory": task.world.keep_inventory},
         "plot": {"min": list(lo), "max": list(hi), "center": list(plot.center()),
                  "floor_y": plot.floor_y if plot.flat else None,
-                 "anchor": [lo[0] + task.anchor[0], lo[1] + task.anchor[1], lo[2] + task.anchor[2]]},
+                 "anchor": [lo[0] + task.anchor[0], lo[1] + task.anchor[1], lo[2] + task.anchor[2]],
+                 **({"border": b} if (b := border_of(task, plot, s)) else {})},
         "start": list(start),
         "inventory": dict(task.inventory or {}),
         "budget": {"max_seconds": max_seconds, "max_cost_usd": max_cost,
@@ -743,6 +744,20 @@ def task_hash(task_id: str) -> str:
     return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
+def border_of(task: Task, plot: Plot, s: Settings) -> dict | None:
+    """The world border the trial runs inside, as {min: [x, z], max: [x, z]}: a flat overworld plot's fence, or a
+    survival world's border round its spawn. None for a Nether room (walled) or an unfenced plot. A player sees it."""
+    if plot.flat:
+        if not plot.fence or plot.dimension != "minecraft:overworld":
+            return None
+        (x0, _, z0), (x1, _, z1) = plot.volume.min, plot.volume.max
+        f = plot.fence
+        return {"min": [x0 - f, z0 - f], "max": [x1 + f, z1 + f]}
+    cx, _, cz = plot.center()
+    half = (task.world.border or s.survival.border) // 2
+    return {"min": [cx - half, cz - half], "max": [cx + half, cz + half]}
+
+
 def bench_info(task: Task, agent: Agent) -> dict:
     m = agent.manifest
     manifest_text = m.path.read_text() if m.path and m.path.exists() else ""
@@ -756,18 +771,25 @@ def bench_info(task: Task, agent: Agent) -> dict:
     if task.split == "heldout":
         from .variants import heldout_key, key_id
         out["key_id"] = key_id(heldout_key() or "")
+        out["pack_id"] = task.pack          # None: drawn from the task file's own domains (caveats_for says so)
     return out
 
 
 def caveats_for(task: Task, agent: Agent) -> list[dict]:
     """What makes this agent's trial of this task not comparable: a capability the grading depends on that the agent
     does not declare (the `guard` grader counts refusals only an agent with a guard reports)."""
+    out = []
     missing = sorted(set(task.requires) - agent.capabilities)
-    if not missing:
-        return []
-    return [{"missing_capabilities": missing,
-             "says": f"the task requires {', '.join(missing)}, which {agent.name} does not declare: "
-                     "the parts graded on it are not comparable"}]
+    if missing:
+        out.append({"missing_capabilities": missing,
+                    "says": f"the task requires {', '.join(missing)}, which {agent.name} does not declare: "
+                            "the parts graded on it are not comparable"})
+    if task.split == "heldout" and task.params and not task.pack:
+        # a held-out draw from the file's own domains is a value an agent may have been developed on (variants.py)
+        out.append({"tag": "public_heldout",
+                    "says": f"{task.id}'s held-out instance is drawn from the domains in its task file, which are public: "
+                            "no held-out pack gives it its own (MCMSBENCH_HELDOUT_DIR)"})
+    return out
 
 
 # ------------------------------------------------------------------ one trial
@@ -793,6 +815,7 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
         plot = arena.plot(trial, w.dimension, w.size, w.height)
         arena.set_difficulty(w.difficulty)
     arena.reset(plot)
+    fenced = plot.flat and arena.fence(plot) is not None      # the plot's edge is the world's for the trial
     observer.move_to(plot)
     before_setup = observer.snapshot(plot)
     before = before_setup                   # until the task's setup has run (a trial that fails before then still grades)
@@ -991,6 +1014,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
             rec.trace["players"] = final("players", players.final) or {}
             players.close()
         stand_in.logout()
+        if fenced:
+            final("unfence", arena.unfence)
 
     time.sleep(0.5)
     after, after_states = observer.snapshot_with_states(plot)
@@ -1040,6 +1065,8 @@ def run_trial(s: Settings, arena: Arena, observer: Observer, stand_in: StandIn, 
               health=rec.final_health, time=rec.final_time, position=rec.final_position, diff=rec.diff)
     rec.plot = {"volume": plot.volume.to_dict(), "floor_y": plot.floor_y, "flat": plot.flat,
                 "dimension": getattr(plot, "dimension", "minecraft:overworld")}
+    rec.trace["loops"] = loops.measure(rec.trace.get("subgoals") or [], rec.result, task.grader, rec.seconds,
+                                       rec.trace.get("track") or [], rec.plot)
     rec.trace["construction"] = construction_features(before, after, d, frames)
     rec.trace["progress"] = [{"label": f.label, "placed": len(diff(before, f.snapshot).placed),
                               "broken": len(diff(before, f.snapshot).broken),
@@ -1140,17 +1167,26 @@ def summarize(records: list[TrialRecord]) -> dict:
             "mean_turns": round(sum(r.trace.get("turns", 0) for r in rs) / len(rs), 1),
             "mean_cost_usd": round(sum(r.trace.get("cost_usd", 0) for r in rs) / len(rs), 4),
             "errors": sum(1 for r in rs if r.error),
-            "caveats": sorted({c for r in rs for cv in r.caveats for c in cv.get("missing_capabilities", [])}),
+            "caveats": sorted({c for r in rs for cv in r.caveats for c in cv.get("missing_capabilities", [])}
+                              | {cv["tag"] for r in rs for cv in r.caveats if cv.get("tag")}),
+            # how the time went (loops.py), beside the score and never in it
+            "loops": round(sum((r.trace.get("loops") or {}).get("loops", 0) for r in rs) / len(rs), 1),
+            "quiet_s": _mean_of([(r.trace.get("loops") or {}).get("quiet_s") for r in rs]),
         })
     return {"rows": rows}
 
 
+def _mean_of(xs: list) -> float | None:
+    xs = [x for x in xs if x is not None]
+    return round(sum(xs) / len(xs), 1) if xs else None
+
+
 def print_summary(summary: dict) -> None:
     cols = ["task", "mode", "model", "split", "trials", "pass_rate", "mean_score", "mean_seconds", "mean_turns",
-            "mean_cost_usd", "errors"]
+            "mean_cost_usd", "errors", "loops", "quiet_s"]
     print("\n" + " | ".join(f"{c:>14}" for c in cols))
     for row in summary["rows"]:
-        print(" | ".join(f"{str(row.get(c, '-')):>14}" for c in cols) + (f"  (caveat: needs {row['caveats']})" if row.get("caveats") else ""))
+        print(" | ".join(f"{str(row.get(c, '-')):>14}" for c in cols) + (f"  (caveat: {row['caveats']})" if row.get("caveats") else ""))
 
 
 # ------------------------------------------------------------------ a run

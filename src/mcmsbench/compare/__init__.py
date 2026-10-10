@@ -13,6 +13,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..loops import of_record as loops_of_record
+
 
 @dataclass
 class Trial:
@@ -46,6 +48,7 @@ class Trial:
     recovery: dict = field(default_factory=dict)         # stalls, cancels, reconnects, dig_retries, deaths
     cache_write: int = 0                                 # prompt tokens written to the cache over the trial
     elisions: int = 0                                    # times the loop rewrote history to shorten old results
+    loops: dict = field(default_factory=dict)            # loops.py: steps repeated, the longest stretch with no milestone
 
     @property
     def dir(self) -> Path:
@@ -98,7 +101,8 @@ def load_trial(path: Path) -> Trial:
     label = label_of(tr, d.get("mode", "?"))
     if bench.get("split", "public") != "public" and bench.get("params"):
         # a split's instances are other tasks than the public ones: never the same column (nor one key's with another's)
-        label += f" [{bench['split']}{' ' + bench['key_id'] if bench.get('key_id') else ''}]"
+        label += (f" [{bench['split']}{' ' + bench['key_id'] if bench.get('key_id') else ''}"
+                  f"{' pack ' + bench['pack_id'] if bench.get('pack_id') else ''}]")
     return Trial(
         task=d["task"], label=label, trial=d["trial"], path=path,
         passed=res["passed"] if res else None, score=res["score"] if res else None,
@@ -112,7 +116,7 @@ def load_trial(path: Path) -> Trial:
         distance=tr.get("distance_travelled"), stats=d.get("final_stats") or {},
         strategy=json.loads(strat_path.read_text()) if strat_path.exists() else None, error=d.get("error"),
         recovery=tr.get("recovery") or {}, cache_write=tr.get("cache_write_tokens", 0) or 0,
-        elisions=tr.get("elisions", 0) or 0)
+        elisions=tr.get("elisions", 0) or 0, loops=loops_of_record(path, d))
 
 
 SKIP_SUFFIXES = (".strategy.json", "_goal.json", "_agent.json", ".built.json", "_memory.json")
@@ -176,6 +180,8 @@ def aggregate(trials: list[Trial]) -> dict:
             "cache_write_per_turn": (sum(t.cache_write for t in ts) / turns) if turns else None,
             "elisions": sum(t.elisions for t in ts),
             "stops": dict(Counter(t.stop or "?" for t in ts)),
+            "loops": _mean([t.loops.get("loops", 0) for t in ts]),
+            "quiet_s": _mean([t.loops.get("quiet_s") for t in ts]),
         }
 
     grid = {task: {lab: cell_stats(cells[(task, lab)]) for lab in labels if (task, lab) in cells} for task in tasks}

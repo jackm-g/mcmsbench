@@ -81,6 +81,10 @@ def test_a_full_run(tmp_path, monkeypatch):
     tr = Agent(manifest(tmp_path), provider="b1").run(ctx)
     assert seen["calls"] == ["hand_off", "take_back"]
     assert seen["frames"] == ["step_01", "step_02"]                 # subgoal_completed and subgoal_failed
+    # the steps as the agent reported them, kept in the trace for the loop measure (loops.py)
+    assert [(s["event"], s["subgoal"], s["text"]) for s in tr["subgoals"]] == \
+        [("subgoal_completed", "s1", "gathered"), ("subgoal_failed", "s2", "could not build")]
+    assert all(isinstance(s["t"], float) for s in tr["subgoals"])
     assert skips == [1]
     assert tr["guard_refusals"] == [{"what": "dig", "at": [1, 2, 3], "why": "not yours"}]
     assert tr["agent"] == "fake" and tr["model"] == "fake-1" and tr["exit_code"] == 0 and tr["stop"] == "done"

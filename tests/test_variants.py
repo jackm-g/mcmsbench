@@ -102,11 +102,12 @@ def test_the_record_says_which_split_and_instance(monkeypatch):
     assert bench_info(load("gather_wood"), A())["split"] == "public" and "params" not in bench_info(load("gather_wood"), A())
 
 
-def test_agents_never_get_the_key(monkeypatch):
+def test_agents_never_get_the_key_nor_the_pack(monkeypatch):
     from mcmsbench.protocol import Agent, Manifest
     monkeypatch.setenv(variants.KEY_ENV, KEY)
+    monkeypatch.setenv(variants.PACK_ENV, "/somewhere/private")
     env = Agent(Manifest(name="x", command=["true"])).environment()
-    assert variants.KEY_ENV not in env and env["MCMSBENCH_PROTOCOL"]
+    assert variants.KEY_ENV not in env and variants.PACK_ENV not in env and env["MCMSBENCH_PROTOCOL"]
 
 
 def test_the_goal_command_shows_a_held_out_instance_only_when_told_to(capsys):
@@ -299,3 +300,92 @@ def test_nether_highway_the_cargo_carried_is_the_cargo_graded():
         delivered = next(m["check"] for m in t.grader["steps"] if m["name"] == "delivered")
         assert delivered["items"] == {item: count}
         assert f"Take the {count} {t.param_values['cargo']['words']}" in " ".join(t.prompt.split())
+
+
+# ------------------------------------------------------------------ held-out packs: domains no task file shows
+
+PACKED = """params:
+  target:
+    default: {id: table, words: "a table"}
+    choices: [{id: table, words: "a table"}, {id: chest, words: "a chest"}]
+  n: {default: 2, range: [1, 3]}
+prompt: "make ${target.words}, ${n} of them"
+setup: ["setblock {sx} {sy} {sz} minecraft:${target.id}"]
+grader: {kind: placed, block: "${target.id}", count: ${n}}
+"""
+PACK = """params:
+  target:
+    choices: [{id: anvil, words: "an anvil"}, {id: lodestone, words: "a lodestone"}]
+setup: ["setblock {sx+1} {sy} {sz} minecraft:iron_ore", "say ${target.id}"]
+"""
+
+
+def _packed(tmp_path, monkeypatch, pack: str | None = PACK):
+    task = tmp_path / "tasks" / "packed.yaml"
+    task.parent.mkdir()
+    task.write_text(PACKED)
+    d = tmp_path / "private"
+    d.mkdir()
+    if pack is not None:
+        (d / "packed.yaml").write_text(pack)
+    monkeypatch.setenv(variants.PACK_ENV, str(d))
+    return task
+
+
+def test_a_pack_gives_the_heldout_split_its_own_domains_and_setup(tmp_path, monkeypatch):
+    task = _packed(tmp_path, monkeypatch)
+    held = [Task.from_yaml(task, "heldout", i, KEY) for i in range(16)]
+    assert {t.param_values["target"]["id"] for t in held} == {"anvil", "lodestone"}       # never the file's
+    assert {t.param_values["n"] for t in held} <= {1, 2, 3}                               # the file's own range still
+    t = held[0]
+    assert t.pack == variants.pack_id(PACK) and f"make {t.param_values['target']['words']}" in t.prompt
+    assert t.setup[-2:] == ["setblock {sx+1} {sy} {sz} minecraft:iron_ore", f"say {t.param_values['target']['id']}"]
+    assert t.grader["block"] == t.param_values["target"]["id"]
+    # the public and varied splits never read it
+    for split in ("public", "varied"):
+        for i in range(8):
+            u = Task.from_yaml(task, split, i)
+            assert u.param_values["target"]["id"] in ("table", "chest") and u.pack is None and len(u.setup) == 1
+
+
+def test_a_pack_that_does_not_fit_its_task_is_refused(tmp_path, monkeypatch):
+    for bad, why in (("params:\n  colour:\n    choices: [red]\n", "no param 'colour'"),
+                     ("params:\n  target:\n    choices: [{id: anvil}]\n", "needs the fields"),
+                     ("params:\n  target:\n    choices: []\n", "no choices"),
+                     ("params:\n  n:\n    range: [3, 1]\n", "range"),
+                     ("params:\n  n: {choices: [1], range: [1, 2]}\n", "one of")):
+        root = tmp_path / str(abs(hash(bad)))
+        root.mkdir()
+        task = _packed(root, monkeypatch, bad)
+        with pytest.raises(variants.VariantError, match=why):
+            Task.from_yaml(task, "heldout", 0, KEY)
+
+
+def test_heldout_without_a_pack_says_its_domains_are_public(tmp_path, monkeypatch):
+    from mcmsbench.runner import bench_info, caveats_for
+
+    class A:
+        name, provider, model, capabilities = "a", None, "m", set()
+        manifest = type("M", (), {"path": None})()
+    monkeypatch.setattr("mcmsbench.runner.task_hash", lambda task_id: "h")
+    task = _packed(tmp_path, monkeypatch, pack=None)
+    t = Task.from_yaml(task, "heldout", 0, KEY)
+    assert t.pack is None and (t.param_values["target"]["id"], t.param_values["n"]) != ("table", 2)   # the file's own
+    assert bench_info(t, A())["pack_id"] is None
+    [cv] = caveats_for(t, A())
+    assert cv["tag"] == "public_heldout" and "public" in cv["says"]
+    (tmp_path / "private" / "packed.yaml").write_text(PACK)
+    t = Task.from_yaml(task, "heldout", 0, KEY)
+    assert bench_info(t, A())["pack_id"] == variants.pack_id(PACK) and caveats_for(t, A()) == []
+
+
+def test_the_pack_directory_is_the_environments_else_heldout_in_the_checkout(tmp_path, monkeypatch):
+    monkeypatch.delenv(variants.PACK_ENV, raising=False)
+    monkeypatch.setattr("mcmsbench.config.ROOT", tmp_path)
+    assert variants.heldout_dir() is None
+    (tmp_path / "heldout").mkdir()
+    assert variants.heldout_dir() == tmp_path / "heldout"
+    monkeypatch.setenv(variants.PACK_ENV, str(tmp_path / "elsewhere"))
+    assert variants.heldout_dir() is None                                                  # named but not there
+    (tmp_path / "elsewhere").mkdir()
+    assert variants.heldout_dir() == tmp_path / "elsewhere"

@@ -8,9 +8,10 @@ are only ever started as processes. No agent ships with the bench.
 
 - **Never import agent code** under `src/`. `tests/test_bench.py::test_the_bench_imports_no_agent` enforces it.
 - **Tasks are agent-neutral.** A prompt is what a player would say. Hints about one agent's API go in that agent's repo.
-- **The held-out split stays held out.** Never commit `MCMSBENCH_HELDOUT_KEY`, print it, or pass it to an agent. Don't
-  read held-out run records or `goal --split heldout --reveal` output while working on an agent; develop on `public`
-  and `varied`. A new task with params keeps its written instance as the defaults (the public split is unchanged).
+- **The held-out split stays held out.** Never commit `MCMSBENCH_HELDOUT_KEY`, print it, or pass it to an agent; never
+  commit a held-out pack (`heldout/`, `MCMSBENCH_HELDOUT_DIR`) or read one while working on an agent. Don't read
+  held-out run records or `goal --split heldout --reveal` output while working on an agent; develop on `public` and
+  `varied`. A new task with params keeps its written instance as the defaults (the public split is unchanged).
 - **A protocol change** is a change for every agent. Additive keys in the goal file or trace are fine within v1.
   Anything an agent must change for is v2: bump `PROTOCOL_VERSION` and say so in PROTOCOL.md.
 

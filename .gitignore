@@ -10,3 +10,4 @@ infra/worlds/*.tar
 .DS_Store
 .vscode/
 CLAUDE.local.md
+heldout/

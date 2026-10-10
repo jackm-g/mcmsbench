@@ -150,8 +150,10 @@ def test_the_prompt_and_the_grader_ask_for_the_same_item(inst):
     v = inst.param_values["target"]
     assert f"I need {v['words']}." in " ".join(inst.render(PLOT, START).split())
     steps = {m["name"]: m["check"] for m in inst.grader["steps"]}
-    assert steps["delivered"]["items"] == {v["id"]: 1} and steps["made"]["name"] == f"crafted:{v['id']}"
-    assert steps["second_source"]["name"] in inst.stats and f"crafted:{v['id']}" in inst.stats
+    # made: the item's crafted counter, but a smithing table's upgrade moves none (three delivered swords graded unmade)
+    made = "custom:interact_with_smithing_table" if v["id"] == "netherite_sword" else f"crafted:{v['id']}"
+    assert steps["delivered"]["items"] == {v["id"]: 1} and steps["made"]["name"] == v["made"] == made
+    assert steps["second_source"]["name"] in inst.stats and made in inst.stats
 
 
 def test_the_goal_file_says_which_chest_and_what():
@@ -183,9 +185,9 @@ def _world():
     return {p: b for p, b in CELLS.items() if p[1] >= SY}
 
 
-def _ctx(after, items=("enchanting_table",), *, broke=(), deaths=0):
+def _ctx(after, items=("enchanting_table",), *, broke=(), deaths=0, stats=None):
     before = _world()
-    stats = {"deaths": deaths, "crafted:enchanting_table": 1, "mined:diamond_ore": 2}
+    stats = stats or {"deaths": deaths, "crafted:enchanting_table": 1, "mined:diamond_ore": 2}
     frames = [Frame("step_01", after, START, [], t=300.0, stats=stats)]
     return Context(before, after, diff(before, after), PLOT.volume, PLOT.floor_y, START, [], frames, stats, 20.0, 6000,
                    START, rcon=Server(list(items)), fmt=FMT, seconds=500.0, setup=_world(), start=START, broke=list(broke))
@@ -212,6 +214,14 @@ def test_the_sources_may_be_used_but_the_hut_may_not():
     del after[(SX - 4, SY + 1, SZ - 9)]
     r = grade(TASK.grader, _ctx(after, broke=[(60.0, SX - 4, SY + 1, SZ - 9, "glass", "dig")]))
     assert not r.checks["hut_intact"] and not r.passed
+
+
+def test_a_sword_upgraded_at_a_smithing_table_is_made_without_a_crafted_count():
+    sword = next(TASK.instance("varied", i) for i in range(24)
+                 if TASK.instance("varied", i).param_values["target"]["id"] == "netherite_sword")
+    stats = {"deaths": 0, "custom:interact_with_smithing_table": 1, "mined:ancient_debris": 8}
+    r = grade(sword.grader, _ctx(_world(), ("netherite_sword",), stats=stats))
+    assert r.passed and r.checks["made"] and r.score == 1.0, r.detail["steps"]
 
 
 def test_a_death_fails():

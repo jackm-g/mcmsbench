@@ -46,6 +46,7 @@ from .config import AGENTS_DIR, agent_path
 PROTOCOL_VERSION = 1
 GRACE_SECONDS = 90          # past the task clock before the process is stopped: the agent stops at the clock itself
 STEP_EVENTS = ("subgoal_completed", "subgoal_failed")
+MAX_SUBGOALS = 2000      # the steps a trace keeps (a run of thousands is one long loop already)
 LOST_CHECK_EVERY = 3.0      # seconds between reads of what ends a trial as failed (fail_on_death: the death counter)
 GOAL_CHECK_EVERY = 10.0     # seconds between live grades; stretched when one takes long (a big plot to scan)
 CONFIRM_SETTLE = 1.5        # a pass is graded again after the agent has been held still this long
@@ -228,11 +229,12 @@ class Agent:
 
     def environment(self) -> dict:
         """The bench's environment, the manifest's additions, and the protocol version; never the held-out key (an
-        agent that could read it could draw the held-out instances itself)."""
-        from .variants import KEY_ENV
+        agent that could read it could draw the held-out instances itself), nor where the held-out pack is."""
+        from .variants import KEY_ENV, PACK_ENV
         env = {**os.environ, **{k: expand_env(str(v)) for k, v in self.manifest.env.items()},
                "MCMSBENCH_PROTOCOL": str(PROTOCOL_VERSION)}
         env.pop(KEY_ENV, None)
+        env.pop(PACK_ENV, None)
         return env
 
     def run(self, ctx: TrialContext) -> dict:
@@ -255,6 +257,7 @@ class Agent:
         output: list[str] = []
         steps = 0
         timer_frames = 0
+        subgoals: list[dict] = []        # the agent's steps as it reported them, for the loop measure (loops.py)
         refusals: list = []
         stopped_by: str | None = None
         ended = False                   # the agent sent goal_end: its run is over, whatever the process still writes
@@ -368,6 +371,9 @@ class Agent:
                         ctx.progress(f"{tag} {ev.get('subgoal')}: {ev.get('text', '')}")
                     elif kind in STEP_EVENTS:
                         steps += 1
+                        if len(subgoals) < MAX_SUBGOALS:
+                            subgoals.append({"t": round(time.time() - t0, 1), "event": kind,
+                                             "subgoal": str(ev.get("subgoal") or "")[:200], "text": str(ev.get("text") or "")[:200]})
                         ctx.progress(f"{tag} {ev.get('subgoal')} {kind.removeprefix('subgoal_')}: {ev.get('text', '')}")
                         if ctx.after_step and stopped_by is None:
                             self._frame(ctx, f"step_{steps:02d}", tag)
@@ -414,6 +420,7 @@ class Agent:
         trace["agent"] = self.name
         trace["model"] = trace.get("model") if trace.get("model") not in (None, "", "-") else self.model
         trace["frames"] = steps
+        trace["subgoals"] = subgoals
         trace["timer_frames"] = timer_frames
         trace["exit_code"] = code
         trace["guard_refusals"] = refusals

@@ -5,7 +5,7 @@
   mcmsbench agents                                                        the manifests on MCMSBENCH_AGENT_PATH, and whether each is installed
   mcmsbench tasks [--tag T]                                               the tasks
   mcmsbench goal --task ID [--trial N] [--split S [--reveal]]             the goal file a task makes (no server needed)
-  mcmsbench heldout init | rotate | id                                    the held-out split's secret key (in .env)
+  mcmsbench heldout init | rotate | id                                    the held-out split's secret key (in .env), its pack
   mcmsbench check-agent NAME                                              protocol conformance (runs the agent twice)
   mcmsbench compare DIRS [--out FILE] [--summarize] [--open]              one HTML page across runs
   mcmsbench render DIRS                                                   re-render frames and reports from records
@@ -265,8 +265,8 @@ def cmd_world(argv: list[str]) -> int:
 
 def cmd_heldout(argv: list[str]) -> int:
     """The held-out split's key: `init` puts a new one in .env when there is none, `rotate` replaces it (new instances;
-    results under the old key keep its id), `id` prints the key's public id."""
-    from .variants import KEY_ENV, heldout_key, key_id, new_key
+    results under the old key keep its id), `id` prints the key's public id and the held-out pack's tasks and ids."""
+    from .variants import KEY_ENV, PACK_ENV, heldout_dir, heldout_key, key_id, new_key, pack_id
     p = argparse.ArgumentParser(prog="mcmsbench heldout", description=cmd_heldout.__doc__)
     p.add_argument("cmd", choices=["init", "rotate", "id"])
     a = p.parse_args(argv)
@@ -274,6 +274,10 @@ def cmd_heldout(argv: list[str]) -> int:
     have = heldout_key()
     if a.cmd == "id":
         print(key_id(have) if have else f"no key: {KEY_ENV} is not set (`mcmsbench heldout init`)")
+        d = heldout_dir()
+        packs = sorted(d.glob("*.yaml")) if d else []
+        print(f"pack {d}: " + (", ".join(f"{q.stem} {pack_id(q.read_text())}" for q in packs) or "empty") if d else
+              f"no held-out pack ({PACK_ENV}, or heldout/ here): held-out instances come from the task files' public domains")
         return 0 if have else 1
     if a.cmd == "init" and have:
         print(f"a key is already set ({key_id(have)}); `mcmsbench heldout rotate` replaces it")

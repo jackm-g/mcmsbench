@@ -22,6 +22,21 @@ Which values a trial gets is its split's:
            keys are not compared. Rotate the key once its instances have been looked at.
 
 A task without params is the same in every split.
+
+A task file is public, and so are the domains in it: an agent developed on the public and varied instances has seen
+every value the held-out split can draw from them (commission: all seven targets, in its first eight instances). A
+held-out pack is what is never committed: a directory (MCMSBENCH_HELDOUT_DIR, else heldout/ in the checkout, which git
+ignores) of <task>.yaml files, each giving that task's held-out split its own domains, and the setup they need:
+
+    params:                 # these params' domains in the heldout split (choices or range), in place of the file's
+      target:
+        choices:
+          - {id: anvil, words: "an anvil", ...}     # the same fields as the file's own choices
+    setup:                  # appended to the task's setup in the heldout split; ${...} filled like the file's
+      - "setblock {sx+5} {sy} {sz+5} minecraft:iron_ore"
+
+Each held-out trial records its pack's id (`pack_id`, a hash), as it does its key's; one drawn from a task's public
+domains carries a caveat that says so. The public and varied splits never read a pack.
 """
 from __future__ import annotations
 
@@ -32,12 +47,14 @@ import os
 import random
 import re
 import secrets
+from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
 
 SPLITS = ("public", "varied", "heldout")
 KEY_ENV = "MCMSBENCH_HELDOUT_KEY"
+PACK_ENV = "MCMSBENCH_HELDOUT_DIR"
 _EXPR = re.compile(r"\$\{([^{}]*)\}")
 _FUNCS = {"int": int, "round": round, "min": min, "max": max, "abs": abs,
           "off": lambda n: "" if n == 0 else f"{n:+d}"}     # an offset for the bench's {sx}: {sx${off(dx)}} -> {sx-40}, {sx}
@@ -120,6 +137,70 @@ def draw(task_id: str, spec: dict, split: str, trial: int, key: str | None = Non
         if split != "heldout" or values != defaults(spec):
             return values
     raise VariantError(f"{task_id}: no held-out instance other than the public one (its params have one value each)")
+
+
+# ------------------------------------------------------------------ held-out packs
+
+def heldout_dir() -> Path | None:
+    """The held-out pack's directory: MCMSBENCH_HELDOUT_DIR (the environment's, else the bench's .env), else heldout/
+    in the checkout when there is one; None when there is no pack."""
+    from .config import ROOT
+    d = os.environ.get(PACK_ENV)
+    if not d:
+        from dotenv import dotenv_values
+        d = dotenv_values(ROOT / ".env").get(PACK_ENV) or None
+    path = Path(d).expanduser() if d else ROOT / "heldout"
+    return path if path.is_dir() else None
+
+
+def pack_file(task_id: str) -> Path | None:
+    d = heldout_dir()
+    p = d / f"{task_id}.yaml" if d else None
+    return p if p is not None and p.is_file() else None
+
+
+def pack_id(text: str) -> str:
+    """A pack file's public name: enough to tell two packs' results apart, nothing of what is in it."""
+    return hashlib.sha256(("mcmsbench-pack|" + text).encode()).hexdigest()[:8]
+
+
+def pack_spec(task_id: str, spec: dict, text: str) -> dict:
+    """The task's params with the pack's domains in place of the file's (`text` is the pack file). A pack param the
+    task does not have, a domain that is not choices or a range, or a choice without the fields the file's `${...}`
+    read (those of its default), is refused."""
+    raw = yaml.safe_load(_EXPR.sub("0", text)) or {}
+    over = raw.get("params") or {}
+    if not isinstance(over, dict):
+        raise VariantError(f"{task_id} pack: `params` is a mapping of name: {{choices | range}}")
+    out = {k: dict(v) for k, v in spec.items()}
+    for name, p in over.items():
+        if name not in spec:
+            raise VariantError(f"{task_id} pack: the task has no param {name!r} (it has {sorted(spec)})")
+        if not isinstance(p, dict) or ("choices" in p) == ("range" in p):
+            raise VariantError(f"{task_id} pack: param {name!r} needs one of `choices` or `range`")
+        default = spec[name]["default"]
+        if "choices" in p:
+            if not p["choices"]:
+                raise VariantError(f"{task_id} pack: param {name!r} has no choices")
+            for c in p["choices"]:
+                if isinstance(default, dict) and (not isinstance(c, dict) or set(c) != set(default)):
+                    raise VariantError(f"{task_id} pack: a choice of {name!r} needs the fields {sorted(default)}: {c!r}")
+            out[name] = {"default": default, "choices": list(p["choices"])}
+        else:
+            lo, hi = p["range"]
+            if not (isinstance(lo, int) and isinstance(hi, int) and lo <= hi):
+                raise VariantError(f"{task_id} pack: param {name!r}: `range: [lo, hi]` of integers")
+            out[name] = {"default": default, "range": [lo, hi]}
+    return out
+
+
+def pack_setup(text: str, values: dict) -> list[str]:
+    """The pack's setup, its `${...}` filled with the instance's values."""
+    raw = yaml.safe_load(render(text, values)) or {}
+    setup = raw.get("setup") or []
+    if not isinstance(setup, list):
+        raise VariantError("a pack's `setup` is a list of commands")
+    return [str(c) for c in setup]
 
 
 # ------------------------------------------------------------------ `${...}`

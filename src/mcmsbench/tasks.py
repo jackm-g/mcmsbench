@@ -107,6 +107,8 @@ class Task:
     params: dict = field(default_factory=dict)        # the task's variant params (variants.py): {name: {default, choices|range}}
     param_values: dict = field(default_factory=dict)  # the values this instance was drawn with
     split: str = "public"                             # the split it was drawn for (public: the defaults)
+    pack: str | None = None                           # heldout: the id of the pack its domains came from (variants.py);
+                                                      # None: drawn from the task file's own, public, domains
     source: Path | None = None                        # its file, for drawing another instance
 
     def seed_for(self, trial: int) -> int:
@@ -257,14 +259,20 @@ class Task:
         text = path.read_text()
         spec = variants.params_of(text)
         values: dict = {}
+        pack = variants.pack_file(path.stem) if split == "heldout" and spec else None
+        pack_text = pack.read_text() if pack else None
         if spec or "${" in text:
             if split == "heldout" and spec and key is None:
                 key = variants.heldout_key()
-            values = variants.draw(path.stem, spec, split, trial, key)
+            drawn_from = variants.pack_spec(path.stem, spec, pack_text) if pack_text else spec
+            values = variants.draw(path.stem, drawn_from, split, trial, key)
             text = variants.render(text, values)
         d = with_profile(yaml.safe_load(text))
         d.pop("params", None)
-        d.update(params=spec, param_values=values, split=split if spec else "public", source=path)
+        if pack_text:
+            d["setup"] = list(d.get("setup") or []) + variants.pack_setup(pack_text, values)
+        d.update(params=spec, param_values=values, split=split if spec else "public", source=path,
+                 pack=variants.pack_id(pack_text) if pack_text else None)
         d.setdefault("id", path.stem)
         if "anchor" in d:
             d["anchor"] = tuple(d["anchor"])
