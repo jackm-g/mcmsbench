@@ -77,6 +77,8 @@ UNCOVERED = {
     "leg": "the part of your trip spent in {dimension}, from the position track: how far it went from where you came in",
     "entity_inside": "where the {entity} stands, from the server",
     "dug": "blocks dug ({block}), from the whole trial's world diff",
+    "spawnable": "surfaces a mob could spawn on in the finished world: a full block's top with two clear blocks above it "
+                 "and nothing on it (a slab, carpet) that stops a mob standing there; at most {max} left",
     "guard": "the live guard's refusals over the trial",
     "stayed": "the whole walk staying within {radius} blocks",
     "liquid_path": "a liquid path the grader traces in the final world",

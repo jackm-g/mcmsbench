@@ -1,0 +1,329 @@
+video: 84GUEi-qrG0
+title: "I Built a Wither Skeleton FARM in Minecraft Hardcore (#39)"
+channel: WadZee
+duration: 1725
+watched: 2026-10-11
+coverage: >-
+  Whole transcript (auto captions, 768 lines, 13 chapters). Frames at 01:30 and 02:00 (the melon farm and base
+  overview, not useful) and a sheet over 18:50-20:40 (the spawning platform: netherrack square, nether brick border,
+  carpet next to lava, blazes burning the carpet).
+notes: >-
+  A late-game episode: elytra, netherite, farms for everything. The objective chain is clear in the narration
+  (site choice, spawn-proofing, wither roses, platform, piglin, dogs, roses planted, test). The spawn-proofing
+  (04:02-14:16) and the dog transport (22:41-25:22) are the richest in failure modes. The wither fights and the skull
+  hunt are not minable at the bench's budget. Item names in the captions are mangled (wawa, pickling, piggling).
+candidates:
+  - id: spawn_proof_the_cavern
+    status: drafted
+    task: spawn_proof_the_cavern
+    source: {from: "04:02", to: "14:16"}
+    did: >-
+      Cover every surface a mob could spawn on, across the whole area around the fortress, with slabs: the hidden
+      caves and corners too, the layers of the bastion, then the fortress itself last. Ran out of cobblestone slabs
+      halfway and switched to wooden ones.
+    why: >-
+      A completeness task with a physical, checkable property: after the work, no block in the volume may have two
+      air blocks above a spawnable top. It measures systematic coverage (the sneaky caves, the inside and outside of
+      a hallway), material budgeting (he ran out), and knowing which surfaces count (he did not know whether nether
+      bricks need covering). The player's own trap was working backwards: slabbing the open ground first so that
+      every mob spawned on the fortress he had left for last.
+    skills: [building, planning, nether, coverage]
+    failure_modes:
+      - "missed spots in caves and under overhangs ('a million spots I've missed')"
+      - "ran out of the material; a second material had to do"
+      - "covered blocks that did not need covering (time) or skipped ones that did"
+    world: flat
+    setup: >-
+      A Nether plot carved into a cavern: an irregular floor with two side pockets and a ledge, a 5x9 nether-brick
+      walkway through it, a chest with exactly enough cobblestone slabs for about 80% of the surfaces plus some
+      planks, a stone pickaxe. Random ticks are frozen so nothing changes under the bot.
+    grader:
+      required: [no_spawnable, alive]
+      steps:
+        - {name: slabs_down, weight: 1, check: {kind: placed, block: "*_slab", count: 60}}
+        - {name: no_spawnable, weight: 4, check: {kind: blocks, block: netherrack, min: 0}}
+        - {name: walkway_intact, weight: 1, check: {kind: intact, of: setup}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      shape: {default: pockets, choices: [pockets, ledge, hallway]}
+      budget: {default: 0.8, choices: [0.7, 0.8, 1.0]}
+    overlaps: [make_safe, shelter_in_desert]
+    tier: tier-c
+    budget: {seconds: 600, turns: 25}
+    risks:
+      - "needs a new grader kind: `spawnable` (from the after snapshot: a full solid top with two air above and no slab, carpet or button on it); the `blocks` step above is a placeholder for it"
+      - "the plot's cavern must be carved deterministically in setup (fill commands), so every instance's surface count is known for the slab budget"
+      - "make_safe grades the live guard; this grades the world, which is the difference worth stating in the design notes"
+    decision: "approved 2026-10-11; drafted as tasks/spawn_proof_the_cavern.yaml with the `spawnable` grader (262 surfaces, a 16x16 room)"
+
+  - id: trap_the_piglin
+    status: candidate
+    source: {from: "20:41", to: "21:36"}
+    did: >-
+      Get a piglin from the bastion into a one-block cell in the middle of the platform: a staircase up into the
+      fortress, bait it with gold, lead it along the walkway and down into the cell, wall it in, name-tag it.
+    why: >-
+      Herding a mob that attacks you unless you wear gold, into an exact spot, without killing it. Server truth is
+      the piglin's position and name. The judgements are the gold armour (piglin_barter's catch, here the bot must
+      wear it to survive the walk), the lure (a gold ingot held, or thrown), and sealing the cell before it wanders.
+    skills: [nether, mobs, herding, hazard]
+    failure_modes:
+      - "the piglin loses interest and wanders off the walkway"
+      - "the piglin attacks because no gold armour is worn"
+      - "the cell is open on one side and the piglin walks out"
+    world: flat
+    setup: >-
+      Nether plot. A piglin (PersistenceRequired, IsImmuneToZombification) 12 blocks from a raised 1x1 cell with
+      walls on three sides, a nether-brick walkway between, a chest holding a golden helmet, 8 gold ingots, a name
+      tag, nether bricks. The bot carries a sword and bread.
+    grader:
+      required: [in_cell, named, alive]
+      steps:
+        - name: in_cell
+          weight: 4
+          check: {kind: functional, steps: [{assert: "execute if entity @e[type=minecraft:piglin,x={sx+6},y={sy},z={sz},dx=0,dy=1,dz=0]"}]}
+        - name: named
+          weight: 1
+          check: {kind: functional, steps: [{assert: "execute if entity @e[type=minecraft:piglin,name=!,limit=1]"}]}
+        - {name: wore_gold, weight: 1, check: {kind: equipped, slots: {head: golden_helmet}}}
+        - {name: not_killed, weight: 1, hold: true, check: {kind: stat, name: "killed:piglin", max: 0}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      cell: {default: {dx: 6, dz: 0}, choices: [{dx: 6, dz: 0}, {dx: -5, dz: 4}, {dx: 0, dz: 7}]}
+      lure: {default: gold_ingot, choices: [gold_ingot, golden_sword]}
+    overlaps: [piglin_barter, beef_ranch]
+    tier: tier-c
+    budget: {seconds: 480, turns: 20}
+    risks:
+      - "the `named` assert needs the name-tag name as the task's own choice (`name=` with a quoted string) rather than a not-empty test"
+      - "piglins admire gold and may stop to pick up a thrown ingot; confirm that a held ingot draws it along"
+    decision: ""
+
+  - id: bring_the_dogs
+    status: drafted
+    task: bring_the_dogs
+    source: {from: "22:41", to: "25:22"}
+    did: >-
+      Take two of your dogs from the kennel at home to the farm's collection room a long way off: through the portal
+      (they got stuck), across lava (fly, and they teleport to you on landing), stop when one falls behind, feed one
+      that nearly died, land both in the room and sit them where they are wanted.
+    why: >-
+      Escorting tamed wolves measures understanding of their rules: they teleport to the owner only when standing
+      and only onto solid ground, they stay put while sitting, they take damage and need meat, and they follow into
+      hazards. Server truth: two wolves alive, sitting, inside the marked room at the end. Overworld version keeps it
+      within the arena: the kennel at the base, the destination across a river and a cliff 120 blocks away.
+    skills: [survival, mobs, navigation, animal_care]
+    failure_modes:
+      - "a dog left sitting never teleports and is forgotten"
+      - "a dog teleports onto a hazard (lava, a cliff) and dies"
+      - "only one dog arrives; the other was lost at a crossing"
+      - "the dog starves on the way with no food carried"
+    world: survival-1
+    setup: >-
+      Two tamed wolves (Owner set to the bot after it joins, Sitting:1b) in a fenced kennel at seed 1's spawn, a chest
+      with 8 bones and 8 cooked beef, a marked 5x5 cobblestone room with a door 120 blocks east, past the river. No
+      lead in the chest in the default instance; a lead in a variant.
+    grader:
+      required: [both_arrived, alive]
+      steps:
+        - name: both_arrived
+          weight: 4
+          check: {kind: functional, steps: [{do: "execute store result score #dogs mcms run execute if entity @e[type=minecraft:wolf,x={sx+118},y={sy-4},z={sz-2},dx=5,dy=8,dz=5]", assert: "execute if score #dogs mcms matches 2.."}]}
+        - name: sitting
+          weight: 1
+          check: {kind: functional, steps: [{assert: "execute unless entity @e[type=minecraft:wolf,nbt={{Sitting:0b}},x={sx+118},y={sy-4},z={sz-2},dx=5,dy=8,dz=5]"}]}
+        - {name: no_dog_died, weight: 2, hold: true, check: {kind: stat, name: "killed:wolf", max: 0}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      distance: {default: 120, choices: [90, 120, 150]}
+      lead: {default: 0, choices: [0, 1]}
+      dogs: {default: 2, choices: [2, 3]}
+    overlaps: [beef_ranch, axolotl_fetch, island_delivery]
+    tier: tier-c
+    budget: {seconds: 600, turns: 25}
+    risks:
+      - "setting Owner needs the bot's UUID: a setup step after the bot joins (`data modify entity ... Owner set from entity {bot} UUID`), or the wolves summoned with Owner from a `functional`-style post-join step; confirm the runner's setup runs after join"
+      - "a wolf that dies by its own fall or in water is not `killed:wolf` by the bot; the no_dog_died step should instead count wolves alive anywhere (a scoreboard of wolf entities)"
+      - "120 blocks east of seed 1's spawn is grass to 240 (obsidian_expedition's probe); the river is at about 70-90 north/south, so the route may need bending to cross water"
+    decision: "approved 2026-10-11; drafted as tasks/bring_the_dogs.yaml: Owner set from the bot's UUID in setup (offline-mode server), the hut measured from a kept marker, dogs counted over RCON"
+
+  - id: carpet_by_the_lava
+    status: candidate
+    source: {from: "18:50", to: "20:40", frames: ["sheet_0-18-50_0-20-40_s15.jpg"]}
+    did: >-
+      Build the spawning platform to spec: dig down, a 19x19 square of netherrack, a border of nether bricks, carpet
+      around the outside. Carpet next to the lava caught fire; he went up with scaffolding to block the lava first,
+      and blazes still burned some.
+    why: >-
+      A build to a spec next to a hazard, where the order of work is the judgement: block the lava before placing
+      flammables, or lose them. Graded on the spec being met at the end (the carpet count is what burned carpet
+      takes away) and the lava still where setup put it. Parametrisable in size, border material and where the lava is.
+    skills: [building, nether, hazard, planning]
+    failure_modes:
+      - "flammable blocks placed next to lava burned"
+      - "the border was not continuous"
+      - "dug into the lava pool while levelling"
+    world: flat
+    setup: >-
+      Nether plot. A lava pool along one side of the plot at floor level, a chest with 100 netherrack, 48 nether
+      bricks, 40 carpet, 32 cobblestone, a pickaxe. The spec in the prompt: a 9x9 netherrack square centred at a
+      marked block, a one-block nether brick border, carpet on every border block.
+    grader:
+      required: [square, border, carpet, alive]
+      steps:
+        - {name: square, weight: 2, check: {kind: blocks, block: netherrack, min: 81}}
+        - {name: border, weight: 2, check: {kind: blocks, block: nether_bricks, min: 40}}
+        - {name: carpet, weight: 3, check: {kind: blocks, block: "*_carpet", min: 40}}
+        - {name: lava_intact, weight: 1, check: {kind: intact, of: setup, exclude: [chest]}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      size: {default: 9, choices: [7, 9, 11]}
+      lava: {default: east, choices: [east, north, south]}
+      cover: {default: carpet, choices: [carpet, oak_slab]}
+    overlaps: [platform_5x5, schematic_hut, lava_fall]
+    tier: tier-c
+    budget: {seconds: 420, turns: 20}
+    risks:
+      - "a `schematic` or `exact` check (layered spec) grades the shape better than `blocks` counts; `blocks` is the sketch"
+      - "whether carpet beside lava burns with random ticks frozen (the arena sets random_tick_speed 0): fire spread is a random tick, so the trap may not fire; the task may need the plot's random ticks on, as prod's profile does"
+    decision: ""
+
+  - id: chickens_from_eggs
+    status: candidate
+    source: {from: "15:21", to: "17:48"}
+    did: >-
+      Get over 300 chickens into one pen, starting from a chest of eggs from the chicken farm: throw the eggs, breed
+      the chicks up with seeds. The more he packed in, the more suffocated and died.
+    why: >-
+      A crowd of animals from eggs, where the judgement is the pen's size: entity cramming kills everything past
+      24 in one block. Measures the egg mechanic (one chick in eight), breeding with seeds, and giving them room.
+      Server truth: chickens alive inside the pen at the end.
+    skills: [farming, mobs, planning]
+    failure_modes:
+      - "chickens crammed into a small pen suffocate"
+      - "eggs thrown at a wall break with no chick"
+      - "chicks not bred; too few chickens"
+    world: flat
+    setup: >-
+      Flat plot. A fenced 4x4 pen with a gate, a chest with 64 eggs and 64 wheat seeds, fences and a gate in the
+      chest to enlarge the pen. The prompt asks for at least 24 chickens alive in the pen.
+    grader:
+      required: [enough, alive]
+      steps:
+        - name: enough
+          weight: 4
+          check: {kind: functional, steps: [{wait: 20}, {do: "execute store result score #hens mcms run execute if entity @e[type=minecraft:chicken,x={x0},y={sy},z={z0},dx=32,dy=6,dz=32]", assert: "execute if score #hens mcms matches 24.."}]}
+        - {name: used_eggs, weight: 1, check: {kind: stat, name: "used:egg", min: 32}}
+        - {name: bred, weight: 1, check: {kind: stat, name: "used:wheat_seeds", min: 8}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      target: {default: 24, choices: [16, 24, 40]}
+      eggs: {default: 64, choices: [48, 64, 96]}
+    overlaps: [beef_ranch, wheat_farm]
+    tier: tier-b
+    budget: {seconds: 420, turns: 15}
+    risks:
+      - "chicks take 20 minutes to grow and only adults breed: the target must be reachable from eggs alone (64 eggs give about 8 chicks) plus a few adults placed in setup, or the task gives spawn eggs; the numbers need a probe"
+      - "the `enough` check must count inside the pen the bot made, not the plot: a pen the bot enlarged moves the volume; count chickens that are enclosed instead, or accept any fenced area"
+    decision: ""
+
+  - id: pick_the_fortress_site
+    status: candidate
+    source: {from: "02:09", to: "03:45"}
+    did: >-
+      Choose which fortress to build the farm at. The criteria he stated: out in the open, surrounded by open space,
+      and over a lava ocean to save the spawn-proofing later. The first two were hemmed in by land; he flew on and
+      found one over lava.
+    why: >-
+      A judgement from stated criteria with a checkable answer: of three candidate pads the setup places, only one
+      meets all the criteria. Server truth: where the bot ends and what it marks. Cheap, parametrisable (which pad is
+      right, which criterion decides), and a shape the bench lacks: choosing a site before building.
+    skills: [planning, nether, navigation]
+    failure_modes:
+      - "picked the nearest, not the right one"
+      - "missed one criterion (open space but not over lava)"
+    world: flat
+    setup: >-
+      A 48-wide Nether plot with three nether-brick pads: one walled in by netherrack, one over netherrack ground
+      with open air round it, one over a lava pool with open air round it. The bot starts in the middle with a chest
+      of torches. The prompt gives the criteria and asks the bot to go to the right pad and plant a torch on it.
+    grader:
+      required: [on_the_pad, alive]
+      steps:
+        - {name: on_the_pad, weight: 3, check: {kind: position, target_rel: [14, 0, -12], tolerance: 4}}
+        - {name: marked, weight: 2, check: {kind: placed, block: torch, count: 1}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      answer: {default: ne, choices: [ne, sw, s]}
+    overlaps: [orient_and_travel, goto_point]
+    tier: tier-b
+    budget: {seconds: 300, turns: 10}
+    risks:
+      - "the `marked` step should check the torch is on the right pad (a `placed` with a volume, or `functional` at the pad), not anywhere"
+      - "a 48-wide Nether plot: ghast_fight uses size 48, so the arena allows it"
+    decision: ""
+
+  - id: clear_the_spawners
+    status: candidate
+    source: {from: "03:32", to: "03:45"}
+    did: >-
+      Break the blaze spawners in the fortress he chose, since it would not be a blaze farm. Blazes came at him
+      while he did.
+    why: >-
+      Combat with a goal in the world: two spawner blocks broken while their blazes attack and set you on fire.
+      Server truth: the spawners gone (`dug`), damage taken, alive. The judgement is fire resistance or water
+      (none in the Nether) and ranged fighting.
+    skills: [combat, nether, hazard]
+    failure_modes:
+      - "burned to death closing in on the spawner"
+      - "broke one spawner and fled"
+    world: flat
+    setup: >-
+      Nether plot, two spawner blocks on nether-brick stubs 10 blocks apart. The arena freezes mob spawning, so
+      timed `events` summon a blaze near each spawner every 30 s until it is broken, as cave_gauntlet summons its
+      waves. A chest with a bow, 32 arrows, an iron pickaxe, a fire resistance potion.
+    grader:
+      required: [both_broken, alive]
+      steps:
+        - {name: both_broken, weight: 4, check: {kind: dug, block: spawner, count: 2}}
+        - {name: alive, weight: 2, hold: true, check: {kind: survived}}
+        - {name: not_burned_much, weight: 1, check: {kind: stat, name: damage_taken, max: 60}}
+    params:
+      spawners: {default: 2, choices: [1, 2, 3]}
+      potion: {default: 1, choices: [0, 1]}
+    overlaps: [ghast_fight, cave_gauntlet, fight_zombies]
+    tier: tier-c
+    budget: {seconds: 420, turns: 15}
+    risks:
+      - "spawners do nothing with spawn_mobs off; summoning blazes by events that stop once the spawner is broken needs a conditional event, which the events mechanism may not have (it is timed, not conditional)"
+      - "a spawner mined with a pickaxe drops nothing but counts as broken; `dug` counts natural blocks only, so a setup-placed spawner may not count as natural: check the diff's rule"
+    decision: ""
+
+  - id: wither_roses_from_the_wither
+    status: rejected
+    source: {from: "14:55", to: "18:12"}
+    did: >-
+      Get over 300 wither roses by spawning a wither among hundreds of chickens, twice.
+    why: >-
+      Not minable: a wither fight in survival runs past the budget and its outcome is dominated by the fight, not
+      by the rose-gathering judgement.
+    world: new-seed
+    setup: none
+    grader: {required: [], steps: []}
+    overlaps: [beacon]
+    tier: tier-d
+    decision: "rejected: wither fight exceeds 600 s and the chicken count is the only judgement; chickens_from_eggs keeps that part"
+
+  - id: skull_hunt
+    status: rejected
+    source: {from: "16:59", to: "17:21"}
+    did: >-
+      Kill wither skeletons until one more skull drops.
+    why: >-
+      A 2.5% drop makes the outcome luck within the budget; not comparable across agents.
+    world: flat
+    setup: none
+    grader: {required: [], steps: []}
+    overlaps: [fight_zombies]
+    tier: tier-c
+    decision: "rejected: random drop rate dominates the score"

@@ -16,7 +16,7 @@ No agent ships with the bench. You bring your own (see [Adding an agent](#adding
 
 | | |
 |---|---|
-| `tasks/*.yaml` | 76 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway, an item whose last ingredient only the requester may have |
+| `tasks/*.yaml` | 78 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway, an item whose last ingredient only the requester may have, a room spawn-proofed, two dogs walked to an outpost |
 | `profiles/*.yaml` | defaults a task inherits (`prod`: a hard, snowy server with spawn protection; `farmstead`) |
 | `infra/docker-compose.yml` | the arenas: a superflat server, and survival servers restored from `infra/worlds/<seed>.tar` |
 | `src/mcmsbench/` | the runner, the protocol, the observer, the graders, reports and the compare page |
@@ -183,6 +183,48 @@ Keep the held-out split held out:
 - `mcmsbench goal --split heldout` needs `--reveal`: an instance shown is no longer unseen.
 - Report held-out scores over several trials (`--trials 5`): each trial is a different instance.
 
+## An example: one agent over the public split
+
+This is what a full run gives you, and how to read it. The agent is jevris (`jev` 1.13.0, from its own repo). Its
+in-loop decisions are made by TypeSafe's Jev model, and Claude Sonnet 5.5 plans in the background. It ran every
+public task once, on 2026-10-11 (bench `e29b980`). The run covered 76 tasks; two were added afterwards. A command
+like this one makes such a run:
+
+```bash
+mcmsbench run --agent jev --all --run-dir runs/public-full-1
+```
+
+The run writes the usual `summary.json`, `index.html` and per-trial records. From those, a readout for whoever
+decides what to work on next is in [docs/example-run/report.html](docs/example-run/report.html). It has the headline
+with its uncertainty, results by tier, world type and tag, a cause for every failure with the evidence, behaviour,
+cost, the caveats, and a row per task. Below are three sections of it.
+
+![Headline: 42 of 76 passed, 95% CI 44–66%, $3.90 spend, 7.5 hours, 97% done-claim precision](docs/example-run/overview.png)
+
+**Headline.** 42 of 76 passed (55%). The 95% interval is 44–66% because there is one trial per task, so groups say
+more than single rows. Model spend was $3.90, or $0.093 a pass, and 98% of it went to the planner. Wall clock was 7.5
+hours, 80% of it spent on failures. The agent's done claims were right 34 times out of 35.
+
+![Pass rate by tier, by world type and by capability tag](docs/example-run/where.png)
+
+**Where it passes.** Tier doesn't order the results. Short procedures (tier B) pass 11 of 13, and the simplest
+single-skill builds (tier A) pass only 2 of 4. World type separates more cleanly. On flat build plots, where the
+materials are supplied and nothing grows, the agent passes 40%; in natural worlds it passes 63%. The tags show the
+same split: long travel, night, farming and containers are strong, while escapes (`situation`, `orientation`) and
+`mechanical` tasks are weak.
+
+![Share of the time budget each trial used, and failures by primary cause](docs/example-run/failures.png)
+
+**How it fails.** Failures run out the clock. 24 of the 34 ended at the deadline, and none crashed. Each failure was
+given one cause from its run log and grader detail. Two causes cover 14 of them:
+
+- Off-task drift on build plots (6): background needs outbid the task. In `platform_5x5` all 25 blocks were placed,
+  then the bot walked 2.1 km looking for trees on a plot that has none.
+- Vertical and water movement (8): the agent has no working move for getting down a drop, out of a pit or out of water.
+
+`trace.loops` shows the same pattern from another side. Failing trials repeat a failed step about 13 times as often as
+passing ones, and they get more than twice as many plan versions. Some of those plans are identical to the one before.
+
 ## Adding an agent
 
 An agent is any program, in any language, that can play Minecraft through a client such as
@@ -209,6 +251,9 @@ A task is a YAML file in `tasks/`. It has a prompt, a world, a start, an invento
 from server truth. `mcmsbench goal --task <id>` shows what an agent will get. Graders are in `src/mcmsbench/graders/`;
 the milestone grader composes the rest. Keep prompts in a player's words. Hints about one agent's API belong in that
 agent, not in the task. If a grader depends on something only an agent can report, add the capability to `requires:`.
+
+Candidates mined from survival videos live in `mining/` (see its README); the `mine-video` skill in `.claude/skills/`
+is the procedure, from a transcript to a ledger of candidates to a task file in this style.
 
 ## Checking the graders
 

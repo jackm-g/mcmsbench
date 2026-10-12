@@ -1,0 +1,137 @@
+# Escorting tamed wolves: two dogs from the kennel by the base to a cobblestone hut 120 blocks east, both alive, sat
+# down inside, the door shut behind them. What it measures is knowing how a tamed wolf moves: it follows only while it
+# is standing (the two start sitting, and a dog left sitting is still at the kennel at the end), it teleports to its
+# owner once it falls more than 12 blocks behind, but only onto solid ground near the owner (never while the owner is
+# over water or in the air), it walks into harm following a path, and it is told to sit by a click once inside. The
+# kennel gate, the walk with a glance back, the hut's door: a player's errand, graded from where the dogs are.
+#
+# Mined from a hardcore video (mining/84GUEi-qrG0, 22:41-25:22): a player taking two dogs through a portal and across
+# a lava sea to a farm, losing one at a crossing, landing where they could teleport, feeding one that nearly died.
+#
+# Seed 1 at the spawn, from dawn on Normal with the day running: the whole trip is daylight. A 17x17 yard round the
+# spawn; the kennel, an oak fence ring with 3x3 inside and a gate on its east side, south-west of the spawn; a chest
+# beside it with cooked beef and bones (and, in a variant, a lead). The two wolves are summoned sitting with the bot
+# as their owner (`data modify ... Owner set from entity {bot} UUID`: setup runs with the bot's stand-in online, and
+# the server is offline-mode, so the agent that logs in under the same name has the same UUID and the dogs are its).
+# The hut stands 120 blocks east on the terrain's own height (seed 1 is grass the whole way east to 240,
+# obsidian_expedition's probe): a marker is summoned over the ground and the hut is built from it, 5x5 outside,
+# cobblestone, a door in its west wall facing the base. The marker is kept: the grader measures the hut's inside
+# from it. `load_area` keeps the hut's chunks loaded for the setup; the grader force-loads them itself at the end.
+#
+# Graded from the server over RCON (`functional`): both dogs inside the hut's 3x3 (the count scored into a bench
+# objective), both of them sitting, the door shut; and the wolves alive anywhere (the two tags still answer); no
+# death. Required: both inside, alive. Scored besides: one dog inside, the bot having reached the hut (the track),
+# the dogs sat, the door shut, no dog lost, no wolf killed by the bot.
+#
+# Params (variants.py): how far east the hut stands (90, 120 or 150) and whether the chest holds a lead, which the
+# prompt mentions when it does.
+params:
+  distance: {default: 120, choices: [90, 120, 150]}
+  lead:
+    default: {item: air, words: ""}
+    choices:
+      - {item: air, words: ""}
+      - {item: lead, words: " There's a lead in the chest if you'd rather walk them on it."}
+prompt: >-
+  I need my two dogs over at the new outpost: the little cobblestone hut about ${distance} blocks east of here. They're
+  in the kennel just south-west of here, sitting. Get them both there alive, sit them down inside, and shut the door
+  behind you.${lead.words} There's beef in the chest by the kennel if one of them gets hurt.
+inventory: {iron_sword: 1, bread: 4}
+world: {type: survival, seeds: [1], radius: 24, border: 400, difficulty: normal, daylight: true}
+start: {time: 1000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+load_area: "{sx-20} {sz-20} {sx+${distance+20}} {sz+20}"
+setup:
+  # the yard: 17x17 of grass round the spawn, clear 8 up, dirt below
+  - "fill {sx-8} {sy} {sz-8} {sx+8} {sy+8} {sz+8} minecraft:air"
+  - "fill {sx-8} {sy-5} {sz-8} {sx+8} {sy-2} {sz+8} minecraft:dirt"
+  - "fill {sx-8} {sy-1} {sz-8} {sx+8} {sy-1} {sz+8} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,x={sx},y={sy},z={sz},distance=..24]"
+  # the kennel, south-west: an oak fence ring with 3x3 inside, its gate in the middle of the east side, shut
+  - "fill {sx-8} {sy} {sz+2} {sx-4} {sy} {sz+2} minecraft:oak_fence"
+  - "fill {sx-8} {sy} {sz+6} {sx-4} {sy} {sz+6} minecraft:oak_fence"
+  - "fill {sx-8} {sy} {sz+3} {sx-8} {sy} {sz+5} minecraft:oak_fence"
+  - "fill {sx-4} {sy} {sz+3} {sx-4} {sy} {sz+5} minecraft:oak_fence"
+  - "setblock {sx-4} {sy} {sz+4} minecraft:oak_fence_gate[facing=east,open=false]"
+  # the chest beside it: beef (a wolf is healed with meat), bones, and the lead when the variant has one
+  - "setblock {sx-2} {sy} {sz+4} minecraft:chest[facing=east]{{Items:[{{Slot:0b,id:\"minecraft:cooked_beef\",count:8}},{{Slot:1b,id:\"minecraft:bone\",count:8}}]}}"
+  - "item replace block {sx-2} {sy} {sz+4} container.2 with minecraft:${lead.item}"
+  # the dogs: two tamed wolves sitting in the kennel, the bot their owner
+  - "summon minecraft:wolf {sx-7} {sy} {sz+3} {{PersistenceRequired:1b,Sitting:1b,CollarColor:11b,Tags:[\"dogs\",\"dog_a\"]}}"
+  - "summon minecraft:wolf {sx-5} {sy} {sz+5} {{PersistenceRequired:1b,Sitting:1b,CollarColor:1b,Tags:[\"dogs\",\"dog_b\"]}}"
+  - "execute as {bot} run data modify entity @e[type=minecraft:wolf,tag=dog_a,limit=1] Owner set from entity @s UUID"
+  - "execute as {bot} run data modify entity @e[type=minecraft:wolf,tag=dog_b,limit=1] Owner set from entity @s UUID"
+  - "tp {bot} {sx} {sy} {sz}"
+  # the outpost, ${distance} east on the ground: one marker (kept: the grader measures the hut from it), the hut round it
+  - "execute positioned {sx+${distance}} 0 {sz} positioned over motion_blocking_no_leaves run summon minecraft:marker ~ ~ ~ {{Tags:[\"outpost\"]}}"
+  - "execute at @e[tag=outpost,limit=1] run fill ~-4 ~ ~-4 ~4 ~6 ~4 minecraft:air"
+  - "execute at @e[tag=outpost,limit=1] run fill ~-3 ~-4 ~-3 ~3 ~-2 ~3 minecraft:dirt"
+  - "execute at @e[tag=outpost,limit=1] run fill ~-3 ~-1 ~-3 ~3 ~-1 ~3 minecraft:grass_block"
+  - "execute at @e[tag=outpost,limit=1] run fill ~-2 ~-1 ~-2 ~2 ~3 ~2 minecraft:cobblestone hollow"
+  - "execute at @e[tag=outpost,limit=1] run setblock ~-2 ~ ~ minecraft:oak_door[facing=east,half=lower]"
+  - "execute at @e[tag=outpost,limit=1] run setblock ~-2 ~1 ~ minecraft:oak_door[facing=east,half=upper]"
+  - "execute at @e[tag=outpost,limit=1] run setblock ~1 ~1 ~1 minecraft:wall_torch[facing=west]"
+stats: [deaths, damage_taken, "killed:wolf"]
+grader:
+  kind: milestones
+  required: [both_inside, alive]
+  steps:
+    - {name: reached, weight: 1, check: {kind: position, target_rel: [${distance}, 0], tolerance: 10, y_tolerance: 40}}
+    - name: one_inside
+      weight: 2
+      says: "at least one of the dogs alive and inside the hut at the end"
+      check:
+        kind: functional
+        steps:
+          - {do: "forceload add {sx+${distance-8}} {sz-8} {sx+${distance+8}} {sz+8}"}
+          - {wait: 2}
+          - {do: "scoreboard objectives add bench_dogs dummy"}
+          - {do: "execute store result score inside bench_dogs at @e[tag=outpost,limit=1] positioned ~-1 ~ ~-1 if entity @e[type=minecraft:wolf,tag=dogs,dx=2,dy=2,dz=2]"}
+          - {assert: "execute if score inside bench_dogs matches 1.."}
+    - name: both_inside
+      weight: 4
+      says: "both dogs alive and inside the hut (its 3x3 inside) at the end"
+      check:
+        kind: functional
+        steps:
+          - {do: "forceload add {sx+${distance-8}} {sz-8} {sx+${distance+8}} {sz+8}"}
+          - {wait: 2}
+          - {do: "scoreboard objectives add bench_dogs dummy"}
+          - {do: "execute store result score inside bench_dogs at @e[tag=outpost,limit=1] positioned ~-1 ~ ~-1 if entity @e[type=minecraft:wolf,tag=dogs,dx=2,dy=2,dz=2]"}
+          - {assert: "execute if score inside bench_dogs matches 2.."}
+    - name: sat_down
+      weight: 1
+      says: "the dogs in the hut sitting at the end"
+      check:
+        kind: functional
+        steps:
+          - {do: "forceload add {sx+${distance-8}} {sz-8} {sx+${distance+8}} {sz+8}"}
+          - {wait: 1}
+          - {assert: "execute at @e[tag=outpost,limit=1] positioned ~-1 ~ ~-1 if entity @e[type=minecraft:wolf,tag=dogs,dx=2,dy=2,dz=2,nbt={{Sitting:1b}}]"}
+          - {assert: "execute at @e[tag=outpost,limit=1] positioned ~-1 ~ ~-1 unless entity @e[type=minecraft:wolf,tag=dogs,dx=2,dy=2,dz=2,nbt={{Sitting:0b}}]"}
+    - name: door_shut
+      weight: 1
+      says: "the hut's door (its west wall) shut at the end"
+      check:
+        kind: functional
+        steps:
+          - {do: "forceload add {sx+${distance-8}} {sz-8} {sx+${distance+8}} {sz+8}"}
+          - {wait: 1}
+          - {assert: "execute at @e[tag=outpost,limit=1] if block ~-2 ~ ~ minecraft:oak_door[open=false]"}
+        cleanup: ["forceload remove {sx+${distance-8}} {sz-8} {sx+${distance+8}} {sz+8}"]
+    - name: none_lost
+      weight: 2
+      says: "both dogs alive at the end, wherever they are"
+      check:
+        kind: functional
+        steps:
+          - {do: "scoreboard objectives add bench_dogs dummy"}
+          - {do: "execute store result score alive bench_dogs if entity @e[type=minecraft:wolf,tag=dogs]"}
+          - {assert: "execute if score alive bench_dogs matches 2.."}
+    - {name: no_wolf_killed, weight: 1, hold: true, check: {kind: stat, name: "killed:wolf", max: 0}}
+    - {name: alive,          weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests
+max_turns: 30
+max_seconds: 600
+exec_timeout: 180
+tags: [tier-c, survival, animals, navigation, long_travel, mobs]

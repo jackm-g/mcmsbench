@@ -1,0 +1,84 @@
+# Spawn-proofing: a cavern that is to be a wither skeleton farm, so nothing else may spawn anywhere in it. Every surface
+# a mob could stand on gets a slab: the open floor, the top of a shelf along one wall, the floor of an alcove tucked
+# under that shelf (the sneaky cave a player misses), the rim of the lava basin, and the nether-brick walkway (a
+# player wonders whether fortress brick needs covering: it does, a mob spawns on it like on anything). What it
+# measures is coverage carried through: finding every surface, not only the obvious floor, and the material: the
+# chest holds slabs for four fifths of the surfaces in the public instance, with planks and a crafting table for
+# the rest (a player who counts first crafts the shortfall before the last corner; one who does not runs out there).
+#
+# Mined from a hardcore video (mining/84GUEi-qrG0, 04:02-14:16): a player slabbing 128 blocks round a fortress by hand,
+# missing spots in caves and under overhangs, running out of cobblestone and finishing in wood.
+#
+# The room is a 16x16 Nether plot 12 high (floor y=96): a netherrack shelf 3 high and 4 deep along the north wall with
+# a 4-wide alcove 2 high carved under it, a 5x5 basin at floor level east or west with 3x3 of lava sources inside a
+# netherrack rim, and a 2-wide nether-brick walkway one block up from the shelf to the south wall, with the chest and
+# the crafting table on it. The bot starts on the open floor west of the walkway. The arena's room has nothing in it
+# that spawns (spawn_mobs off, Easy): the task is the covering, not a fight. Random ticks are frozen, so nothing
+# burns; wooden slabs by the lava are as good as stone.
+#
+# Surfaces: 262 in every instance (64 shelf tops, 16 alcove floor cells, 16 rim, 22 walkway tops with the chest on
+# another, the crafting table's own top, 143 open floor), tests/test_spawn_proof_the_cavern.py counts them. Graded from the observer's
+# snapshot by the `spawnable` grader: a full block's top with two clear cells above it and nothing on it that stops a
+# mob standing there (a slab, carpet, glass; a torch does not). The floor is below the snapshot's volume and is taken
+# as solid under every column; a dug floor cell is still counted as a surface, which is the conservative reading. The
+# observer records names only, so a slab is taken as a bottom slab (the one a placement on a block's top makes); a top
+# slab would spawn a mob and is not caught here.
+#
+# Required: no spawnable surface left, the walkway (and chest and table) as it was, no death. Scored: slabs down (60),
+# most of the room covered (at most 40 left), no netherrack dug.
+#
+# Params (variants.py): where the alcove sits under the shelf (three places), where the basin stands (four), and how
+# many cobblestone slabs the chest holds: 209 (the public instance), 196, or 256 (six short: one craft of three planks).
+params:
+  alcove: {default: 2, choices: [2, 6, 11]}
+  basin:
+    default: {x: 11, z: 10, words: "south-east"}
+    choices:
+      - {x: 11, z: 10, words: "south-east"}
+      - {x: 1, z: 10, words: "south-west"}
+      - {x: 11, z: 5, words: "east"}
+      - {x: 1, z: 4, words: "west"}
+  slabs: {default: 209, choices: [196, 209, 256]}
+prompt: >-
+  This room is going to be my wither skeleton farm, so nothing else can be allowed to spawn in here. Put a slab on
+  every surface a mob could stand on: the floor, the top of the shelf and whatever is tucked in under it, the rim
+  round the lava to the ${basin.words}, and the brick walkway too. Leave the walkway where it is. The slabs are in
+  the chest on the walkway, with planks and a crafting table there in case they don't stretch.
+inventory: {}
+world: {type: flat, dimension: the_nether, difficulty: easy, size: 16, height: 12}
+movements: {can_dig: false, towers: false, scaffolding: []}
+setup:
+  # the shelf along the north wall: 16 wide, 4 deep, 3 high; the alcove under it, 4 wide and 2 high, open to the south
+  - "fill {x0} {y0} {z0} {x1} {y0+2} {z0+3} minecraft:netherrack"
+  - "fill {x0+${alcove}} {y0} {z0} {x0+${alcove+3}} {y0+1} {z0+3} minecraft:air"
+  # the basin: a 5x5 netherrack rim one block up with 3x3 of lava sources inside it
+  - "fill {x0+${basin.x}} {y0} {z0+${basin.z}} {x0+${basin.x+4}} {y0} {z0+${basin.z+4}} minecraft:netherrack"
+  - "fill {x0+${basin.x+1}} {y0} {z0+${basin.z+1}} {x0+${basin.x+3}} {y0} {z0+${basin.z+3}} minecraft:lava"
+  # the walkway: 2 wide, one block up, from the shelf to the south wall; the chest and the crafting table on it
+  - "fill {x0+9} {y0} {z0+4} {x0+10} {y0} {z1} minecraft:nether_bricks"
+  - "setblock {x0+9} {y0+1} {z0+5} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:cobblestone_slab\",count:64}},{{Slot:1b,id:\"minecraft:cobblestone_slab\",count:64}},{{Slot:2b,id:\"minecraft:cobblestone_slab\",count:64}},{{Slot:3b,id:\"minecraft:cobblestone_slab\",count:${slabs-192}}},{{Slot:4b,id:\"minecraft:oak_planks\",count:64}}]}}"
+  - "setblock {x0+10} {y0+1} {z0+5} minecraft:crafting_table"
+  - "tp {bot} {x0+7} {y0} {z0+7}"
+stats: [deaths, damage_taken, "mined:netherrack", "crafted:oak_slab"]
+grader:
+  kind: milestones
+  required: [covered, walkway_kept, alive]
+  steps:
+    - {name: started, weight: 1, check: {kind: placed, block: "*_slab", count: 60}}
+    - {name: most,    weight: 2, check: {kind: spawnable, max: 40}}
+    - name: covered
+      weight: 5
+      says: "no surface left in the room that a mob could spawn on: every full block's top with two clear blocks above it has a slab (or the like) on it; the floor, the shelf, the alcove under it, the lava's rim and the walkway included"
+      agent_check: {kind: spawnable, max: 0}
+      check: {kind: spawnable, max: 0}
+    - name: walkway_kept
+      weight: 1
+      says: "the brick walkway, the chest and the crafting table left where they were"
+      check: {kind: intact, of: setup}
+    - {name: no_digging, weight: 1, hold: true, check: {kind: stat, name: "mined:netherrack", max: 0}}
+    - {name: alive,      weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests
+max_turns: 30
+max_seconds: 600
+exec_timeout: 180
+tags: [tier-c, nether, building, coverage, planning, farms]

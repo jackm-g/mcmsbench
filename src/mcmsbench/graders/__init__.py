@@ -664,6 +664,69 @@ def blocks(ctx: Context, spec: dict) -> Result:
     return Result(n >= need, min(1.0, n / need), {"enough": n >= need}, {"count": n, "need": need})
 
 
+# Spawn surfaces. A hostile mob needs a full block to stand on and two clear blocks above it. What stops a surface:
+# a block on it that has collision but is not a full top (a bottom slab, carpet, a chest), and what does not count as
+# a surface at all (glass, leaves, stairs, fences, liquids). What does not stop one: anything a mob can stand in
+# (a torch, string, a rail, a plant). A top slab is a full top, but the observer records block names only, so a slab
+# is taken as a bottom one; a task that worries about that says so in its notes.
+SPAWN_NOT_TOP = ["*_slab", "*_stairs", "*_carpet", "glass", "*_stained_glass", "tinted_glass", "*glass_pane",
+                 "*_fence", "*_fence_gate", "*_wall", "*_trapdoor", "*_door", "*_button", "*_pressure_plate",
+                 "*_leaves", "chest", "trapped_chest", "ender_chest", "barrel", "scaffolding", "ladder", "*_bed",
+                 "cobweb", "string", "water", "lava", "ice", "*torch", "*_sign", "lantern", "soul_lantern", "chain",
+                 "*_bars", "*_rail", "redstone_wire", "lever", "*_head", "*_skull", "*_banner", "campfire",
+                 "soul_campfire", "hopper", "end_rod", "lightning_rod", "cake", "air", "cave_air", "void_air",
+                 "*_flower", "*_sapling", "short_grass", "grass", "tall_grass", "fern", "large_fern", "dead_bush",
+                 "dandelion", "poppy", "snow", "nether_wart", "wheat", "carrots", "potatoes", "beetroots"]
+SPAWN_CLEAR = ["air", "cave_air", "void_air", "*torch", "string", "*_rail", "redstone_wire", "*_sign", "lever",
+               "*_button", "tripwire*", "*_flower", "*_sapling", "short_grass", "grass", "tall_grass", "fern",
+               "large_fern", "dead_bush", "dandelion", "poppy", "nether_wart", "wheat", "carrots", "potatoes",
+               "beetroots", "nether_portal", "end_portal", "fire", "soul_fire"]
+
+
+def spawnable_surfaces(after: Snapshot, volume: Volume, floor_y: int | None, cover=()) -> tuple[list[XYZ], int]:
+    """Where a mob could spawn in `after` within `volume`: the positions of full-block tops with two clear cells
+    above, and how many tops (covered or not) there are: full blocks with no full block on them. On a flat plot the floor at `floor_y` is solid under every
+    column of the volume, whether or not the snapshot holds it. `cover` adds block patterns that stop a surface."""
+    not_top = SPAWN_NOT_TOP + list(cover)
+    (x0, y0, z0), (x1, y1, z1) = volume.min, volume.max
+
+    def clear(p: XYZ) -> bool:
+        b = after.get(p)
+        return b is None or _matches(b, SPAWN_CLEAR)
+
+    def full(p: XYZ) -> bool:
+        b = after.get(p)
+        return b is not None and not _matches(b, not_top)
+
+    tops: list[XYZ] = [p for p, b in after.items()
+                       if volume.contains(p) and not _matches(b, not_top) and not full((p[0], p[1] + 1, p[2]))]
+    if floor_y is not None and y0 == floor_y + 1:
+        tops += [(x, floor_y, z) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)
+                 if after.get((x, floor_y, z)) is None and not full((x, floor_y + 1, z))]
+    open_ = [p for p in tops if clear((p[0], p[1] + 1, p[2])) and clear((p[0], p[1] + 2, p[2]))]
+    return sorted(open_), len(tops)
+
+
+@grader("spawnable")
+def spawnable(ctx: Context, spec: dict) -> Result:
+    """At most `max` (0) surfaces a mob could spawn on are left in the plot (or `within: "x0 y0 z0 x1 y1 z1"`, a
+    template): a full block's top with two clear cells above it and nothing on it that stops a mob standing there.
+    Score: the share of tops that are not spawnable. `cover` names extra blocks that count as covering."""
+    vol = ctx.plot_volume
+    if spec.get("within") and ctx.fmt:
+        v = [int(n) for n in ctx.fmt(spec["within"]).split()]
+        vol = Volume((min(v[0], v[3]), min(v[1], v[4]), min(v[2], v[5])), (max(v[0], v[3]), max(v[1], v[4]), max(v[2], v[5])))
+    open_, total = spawnable_surfaces(ctx.after, vol, ctx.floor_y, spec.get("cover") or ())
+    n, allow = len(open_), int(spec.get("max", 0))
+    by_block: dict[str, int] = {}
+    for p in open_:
+        b = ctx.after.get(p, "floor")
+        by_block[b] = by_block.get(b, 0) + 1
+    return Result(n <= allow, 1.0 - n / total if total else 1.0, {"covered": n <= allow},
+                  {"spawnable": n, "tops": total, "allowed": allow, "by_block": by_block,
+                   "sample": [list(p) for p in open_[:12]]})
+
+
 @grader("guard")
 def guard(ctx: Context, spec: dict) -> Result:
     """The live guard refused at most `max_refusals` calls (task.guard must be on)."""

@@ -11,3 +11,6 @@ infra/worlds/*.tar
 .vscode/
 CLAUDE.local.md
 heldout/
+mining/*/media/
+mining/*/frames/
+mining/*/transcript.txt
