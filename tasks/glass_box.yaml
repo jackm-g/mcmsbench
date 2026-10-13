@@ -1,0 +1,22 @@
+# A closed glass cube, hollow: every face glass, the floor and the top too, the inside left empty. Novel: a closed
+# shape with no way in, built from the outside, its top laid over open air. Params: its size and where.
+params:
+  n: {default: 3, choices: [3, 4]}
+  corner:
+    default: {x: 10, z: 10}
+    choices: [{x: 10, z: 10}, {x: 18, z: 8}, {x: 8, z: 18}]
+prompt: >-
+  Build a closed glass cube, ${n} by ${n} by ${n} on the outside and hollow inside, sitting on the ground with its
+  lowest corner at x={ax}, y={ay}, z={az} (it extends toward +x, +z and up). Every outer face is glass, the bottom
+  and the top included, and the inside stays empty.
+anchor: [${corner.x}, 0, ${corner.z}]
+inventory: {glass: ${n * n * n - (n - 2) * (n - 2) * (n - 2) + 10}}
+grader:
+  kind: schematic
+  at: [${corner.x}, 0, ${corner.z}]
+  legend: {G: glass}
+  layers: ${[['G' * n] * n] + [['G' * n] + ['G' + '.' * (n - 2) + 'G'] * (n - 2) + ['G' * n]] * (n - 2) + [['G' * n] * n]}
+max_turns: 8
+max_seconds: 360
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-c, building, schematic, novel]

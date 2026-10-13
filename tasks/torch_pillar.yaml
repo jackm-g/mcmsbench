@@ -1,0 +1,27 @@
+# A marker: a pillar so many blocks tall on the ground at a given spot, with a torch on its top. Novel: a column built
+# up and something put on its top, not beside it. Params: the height, the block, where.
+params:
+  height: {default: 4, range: [3, 6]}
+  block:
+    default: {id: cobblestone, words: cobblestone}
+    choices:
+      - {id: cobblestone, words: cobblestone}
+      - {id: oak_log, words: oak logs}
+      - {id: stone_bricks, words: stone bricks}
+  spot:
+    default: {x: 12, z: 19}
+    choices: [{x: 12, z: 19}, {x: 20, z: 9}, {x: 8, z: 8}, {x: 22, z: 22}]
+prompt: >-
+  Mark this spot for me: put up a pillar of ${block.words}, ${height} blocks tall, standing on the ground at x={ax},
+  y={ay}, z={az}, and put a torch on top of it.
+anchor: [${spot.x}, 0, ${spot.z}]
+inventory: {${block.id}: ${height + 6}, torch: 4}
+grader:
+  kind: schematic
+  at: [${spot.x}, 0, ${spot.z}]
+  legend: {C: ${block.id}, T: torch}
+  layers: ${[['C']] * height + [['T']]}
+max_turns: 6
+max_seconds: 240
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-b, building, schematic, novel]

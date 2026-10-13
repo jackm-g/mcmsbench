@@ -1,0 +1,28 @@
+# A checkerboard floor of two blocks on the ground, the corner given one of them. Novel: two materials in a pattern
+# that has to be right block by block. Params: its size, the two blocks, where.
+params:
+  n: {default: 4, choices: [4, 6]}
+  pair:
+    default: {a: white_wool, b: black_wool, aw: white wool, bw: black wool}
+    choices:
+      - {a: white_wool, b: black_wool, aw: white wool, bw: black wool}
+      - {a: oak_planks, b: spruce_planks, aw: oak planks, bw: spruce planks}
+      - {a: stone, b: cobblestone, aw: stone, bw: cobblestone}
+  corner:
+    default: {x: 9, z: 9}
+    choices: [{x: 9, z: 9}, {x: 17, z: 11}, {x: 11, z: 17}]
+prompt: >-
+  Lay a ${n} by ${n} checkerboard floor on the ground, one block thick, from its corner at x={ax}, y={ay}, z={az}
+  toward +x and +z. The corner block is ${pair.aw}, and the blocks alternate ${pair.aw} and ${pair.bw} along every
+  row and every column.
+anchor: [${corner.x}, 0, ${corner.z}]
+inventory: {${pair.a}: ${n * n // 2 + 4}, ${pair.b}: ${n * n // 2 + 4}}
+grader:
+  kind: schematic
+  at: [${corner.x}, 0, ${corner.z}]
+  legend: {A: ${pair.a}, B: ${pair.b}}
+  layers: ${[['AB' * (n // 2), 'BA' * (n // 2)] * (n // 2)]}
+max_turns: 8
+max_seconds: 300
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-b, building, schematic, novel]

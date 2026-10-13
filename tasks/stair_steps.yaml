@@ -1,0 +1,30 @@
+# A solid staircase one block wide going up toward +x: the first column one block high, each next one a block taller,
+# nothing on a step. Novel: a stepped shape, each column's top a different height. Params: how many steps, the block.
+params:
+  steps:
+    default: {h: 4, layers: [["SSSS"], [".SSS"], ["..SS"], ["...S"]]}
+    choices:
+      - {h: 3, layers: [["SSS"], [".SS"], ["..S"]]}
+      - {h: 4, layers: [["SSSS"], [".SSS"], ["..SS"], ["...S"]]}
+      - {h: 5, layers: [["SSSSS"], [".SSSS"], ["..SSS"], ["...SS"], ["....S"]]}
+  block:
+    default: {id: cobblestone, words: cobblestone}
+    choices:
+      - {id: cobblestone, words: cobblestone}
+      - {id: oak_planks, words: oak planks}
+      - {id: stone_bricks, words: stone bricks}
+prompt: >-
+  Build a solid staircase of ${block.words} going up toward the east: ${steps.h} columns side by side, one block wide,
+  the first one block high standing on the ground at x={ax}, y={ay}, z={az}, and each next one (toward +x) one block
+  taller than the one before. Leave the top of every step clear.
+anchor: [11, 0, 15]
+inventory: {${block.id}: ${steps.h * (steps.h + 1) // 2 + 8}}
+grader:
+  kind: schematic
+  at: [11, 0, 15]
+  legend: {S: ${block.id}}
+  layers: ${steps.layers}
+max_turns: 8
+max_seconds: 300
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-b, building, schematic, novel]

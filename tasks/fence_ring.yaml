@@ -1,0 +1,21 @@
+# A square of oak fence on the ground with an oak fence gate in the middle of its south side. Novel: fences and a gate
+# where the prompt says, the inside left alone. Params: the square's size and where.
+params:
+  n: {default: 5, choices: [5, 7]}
+  corner:
+    default: {x: 10, z: 10}
+    choices: [{x: 10, z: 10}, {x: 16, z: 8}, {x: 8, z: 16}]
+prompt: >-
+  Fence in a ${n} by ${n} square with oak fence on the ground, its corner at x={ax}, y={ay}, z={az} (it extends toward
+  +x and +z), with an oak fence gate in the middle of its south side (the side with the largest z) instead of a fence.
+anchor: [${corner.x}, 0, ${corner.z}]
+inventory: {oak_fence: ${4 * n + 4}, oak_fence_gate: 2}
+grader:
+  kind: schematic
+  at: [${corner.x}, 0, ${corner.z}]
+  legend: {F: oak_fence, G: oak_fence_gate}
+  layers: ${[['F' * n] + ['F' + '?' * (n - 2) + 'F'] * (n - 2) + ['F' * (n // 2) + 'G' + 'F' * (n - 1 - n // 2)]]}
+max_turns: 8
+max_seconds: 300
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-b, building, schematic, novel]

@@ -1,0 +1,26 @@
+# A straight wall of one block, so long and so high, standing on the ground from the corner the prompt gives, one
+# block thick. Novel: a shape no other task asks for, from familiar placing. Params: its length, height and block.
+params:
+  length: {default: 6, range: [4, 9]}
+  height: {default: 2, range: [2, 3]}
+  block:
+    default: {id: cobblestone, words: cobblestone}
+    choices:
+      - {id: cobblestone, words: cobblestone}
+      - {id: oak_planks, words: oak planks}
+      - {id: stone_bricks, words: stone bricks}
+      - {id: sandstone, words: sandstone}
+prompt: >-
+  Build me a straight wall of ${block.words}, ${length} blocks long and ${height} blocks high, standing on the ground,
+  one block thick. Its west end is at x={ax}, y={ay}, z={az} and it runs east (toward +x). Place nothing else.
+anchor: [10, 0, 14]
+inventory: {${block.id}: ${length * height + 8}}
+grader:
+  kind: schematic
+  at: [10, 0, 14]
+  legend: {B: ${block.id}}
+  layers: ${[['B' * length]] * height}
+max_turns: 8
+max_seconds: 300
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-b, building, schematic, novel]

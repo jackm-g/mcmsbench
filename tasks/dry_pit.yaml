@@ -1,0 +1,41 @@
+# The bottom of a dry pit, 3x3 and so deep, cut down through dirt into stone; base on the ground some way off. Novel:
+# getting up out of a hole with no water and no ladder, with a few blocks carried, then a walk. Params: the depth, where
+# base is.
+#
+# The world is seed 1 carved flat (96 across): grass, 3 of dirt, stone under. Peaceful, the day held.
+params:
+  depth: {default: 6, range: [5, 8]}
+  base:
+    default: {dx: 24, dz: 0, way: east}
+    choices:
+      - {dx: 24, dz: 0, way: east}
+      - {dx: -20, dz: 14, way: south-west}
+      - {dx: 0, dz: -26, way: north}
+prompt: >-
+  You're at the bottom of a dry pit. Get out, and go stand on base on the ground at x={sx${off(base.dx)}},
+  z={sz${off(base.dz)}} (within 3 blocks).
+inventory: {dirt: ${depth + 6}}
+world: {type: survival, seeds: [1], radius: 48, border: 96, difficulty: peaceful, daylight: false}
+start: {time: 6000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the land: flat grass over dirt over stone, nothing alive but the bot
+  - "fill {sx-48} {sy} {sz-48} {sx+47} {sy+30} {sz+47} minecraft:air"
+  - "fill {sx-48} {sy-20} {sz-48} {sx+47} {sy-5} {sz+47} minecraft:stone"
+  - "fill {sx-48} {sy-4} {sz-48} {sx+47} {sy-2} {sz+47} minecraft:dirt"
+  - "fill {sx-48} {sy-1} {sz-48} {sx+47} {sy-1} {sz+47} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,distance=..120,x={sx},y={sy},z={sz}]"
+  - "fill {sx-1} {sy-${depth}} {sz-1} {sx+1} {sy-1} {sz+1} minecraft:air"
+  - "tp {bot} {sx} {sy-${depth}} {sz}"
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: arrived
+  steps:
+    - {name: out, weight: 1, check: {kind: position, target_abs: spawn, tolerance: 8, y_tolerance: 1}}
+    - {name: arrived, weight: 4, check: {kind: position, target_rel: [${base.dx}, 0, ${base.dz}], tolerance: 3.0, y_tolerance: 3}}
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+max_turns: 8
+max_seconds: 360
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-c, situation, orientation, novel]

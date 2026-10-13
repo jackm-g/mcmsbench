@@ -1,0 +1,25 @@
+# A redstone lamp on the ground at a given spot, lit by a lever, left lit. Novel: a mechanism of two parts, judged by
+# the lamp's state at the end. Params: where.
+params:
+  spot:
+    default: {x: 14, z: 14}
+    choices: [{x: 14, z: 14}, {x: 9, z: 20}, {x: 21, z: 10}]
+prompt: >-
+  Put a redstone lamp on the ground at x={ax}, y={ay}, z={az} and light it with a lever. Leave it lit when you finish.
+anchor: [${spot.x}, 0, ${spot.z}]
+inventory: {redstone_lamp: 1, lever: 2, cobblestone: 8, redstone: 8}
+grader:
+  kind: milestones
+  required: lit
+  steps:
+    - {name: lamp, weight: 1, check: {kind: have_or_placed, item: redstone_lamp}}
+    - name: lit
+      weight: 4
+      check:
+        kind: functional
+        steps:
+          - {assert: "execute if block {ax} {ay} {az} minecraft:redstone_lamp[lit=true]"}
+max_turns: 8
+max_seconds: 300
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-b, mechanical, redstone, novel]

@@ -1,0 +1,41 @@
+# A little island in a lava moat: the bot starts in the middle of a 5x5 island, a ring of lava so many blocks wide all
+# round it, and is to stand on the ground beyond it. Novel: a crossing over something not a drop, with blocks carried.
+# Params: the moat's width, which side the goal is.
+#
+# The world is seed 1 carved flat (96 across); the moat is a ring of lava one block deep in the ground, stone under it.
+# Peaceful, the day held.
+params:
+  w: {default: 3, range: [3, 5]}
+  side:
+    default: {x: 1, z: 0, way: east}
+    choices: [{x: 1, z: 0, way: east}, {x: -1, z: 0, way: west}, {x: 0, z: 1, way: south}, {x: 0, z: -1, way: north}]
+prompt: >-
+  You're on a little island in a lava moat. Get across to the ground ${side.way} of it, to x={sx${off(side.x * (w + 8))}},
+  z={sz${off(side.z * (w + 8))}} (within 2 blocks), without burning.
+inventory: {cobblestone: 16}
+world: {type: survival, seeds: [1], radius: 48, border: 96, difficulty: peaceful, daylight: false}
+start: {time: 6000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the land: flat grass over dirt over stone, nothing alive but the bot
+  - "fill {sx-48} {sy} {sz-48} {sx+47} {sy+30} {sz+47} minecraft:air"
+  - "fill {sx-48} {sy-20} {sz-48} {sx+47} {sy-5} {sz+47} minecraft:stone"
+  - "fill {sx-48} {sy-4} {sz-48} {sx+47} {sy-2} {sz+47} minecraft:dirt"
+  - "fill {sx-48} {sy-1} {sz-48} {sx+47} {sy-1} {sz+47} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,distance=..120,x={sx},y={sy},z={sz}]"
+  - "fill {sx-${w + 2}} {sy-2} {sz-${w + 2}} {sx+${w + 2}} {sy-2} {sz+${w + 2}} minecraft:stone"
+  - "fill {sx-${w + 2}} {sy-1} {sz-${w + 2}} {sx+${w + 2}} {sy-1} {sz+${w + 2}} minecraft:lava"
+  - "fill {sx-2} {sy-1} {sz-2} {sx+2} {sy-1} {sz+2} minecraft:grass_block"
+  - "tp {bot} {sx} {sy} {sz}"
+stats: [deaths, damage_taken]
+grader:
+  kind: milestones
+  required: [across, alive]
+  steps:
+    - {name: across, weight: 4, check: {kind: position, target_rel: [${side.x * (w + 8)}, 0, ${side.z * (w + 8)}], tolerance: 2.0, y_tolerance: 2}}
+    - {name: alive, weight: 2, hold: true, check: {kind: survived}}
+    - {name: unburnt, weight: 1, hold: true, check: {kind: stat, name: damage_taken, max: 1}}
+max_turns: 8
+max_seconds: 300
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-c, situation, hazard, building, novel]

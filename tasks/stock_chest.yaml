@@ -1,0 +1,46 @@
+# A chest beside the start filled with so many of one thing, from a heap of it some way off. Novel: gather, carry and
+# store at a place the prompt names, the material out in the open. Params: the material and how many, where the heap is.
+#
+# The world is seed 1 carved flat (96 across): grass over dirt over stone, the chest 3 east of the start, the heap a
+# 3x3x3 cube of the material about 20 blocks off. Peaceful, the day held: nothing spawns.
+params:
+  stuff:
+    default: {block: oak_log, item: oak_log, words: oak logs}
+    choices:
+      - {block: oak_log, item: oak_log, words: oak logs}
+      - {block: sand, item: sand, words: sand}
+      - {block: stone, item: cobblestone, words: cobblestone (mine it from the stone)}
+      - {block: gravel, item: gravel, words: gravel}
+  count: {default: 8, range: [6, 12]}
+  heap:
+    default: {dx: 20, dz: -4, way: east}
+    choices:
+      - {dx: 20, dz: -4, way: east}
+      - {dx: -22, dz: 6, way: west}
+      - {dx: 4, dz: 21, way: south}
+      - {dx: -6, dz: -20, way: north}
+prompt: >-
+  Fill the chest next to you (at x={sx+3}, y={sy}, z={sz}) with ${count} ${stuff.words}. There's a heap of it about 20
+  blocks ${heap.way} of here.
+inventory: {wooden_pickaxe: 1, wooden_axe: 1, wooden_shovel: 1}
+world: {type: survival, seeds: [1], radius: 48, border: 96, difficulty: peaceful, daylight: false}
+start: {time: 6000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the land: flat grass over dirt over stone, nothing alive but the bot
+  - "fill {sx-48} {sy} {sz-48} {sx+47} {sy+30} {sz+47} minecraft:air"
+  - "fill {sx-48} {sy-20} {sz-48} {sx+47} {sy-5} {sz+47} minecraft:stone"
+  - "fill {sx-48} {sy-4} {sz-48} {sx+47} {sy-2} {sz+47} minecraft:dirt"
+  - "fill {sx-48} {sy-1} {sz-48} {sx+47} {sy-1} {sz+47} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,distance=..120,x={sx},y={sy},z={sz}]"
+  - "setblock {sx+3} {sy} {sz} minecraft:chest[facing=west]"
+  - "fill {sx${off(heap.dx)}} {sy} {sz${off(heap.dz)}} {sx${off(heap.dx + 2)}} {sy+2} {sz${off(heap.dz + 2)}} minecraft:${stuff.block}"
+grader:
+  kind: milestones
+  required: stocked
+  steps:
+    - {name: stocked, weight: 4, check: {kind: container, at: "{sx+3} {sy} {sz}", item: "${stuff.item}", count: ${count}}}
+max_turns: 10
+max_seconds: 480
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-c, containers, gathering, novel]

@@ -151,8 +151,15 @@ fittings, wood), `tower_under_threat` (size, height, where the bot starts, the t
 friend's name, the counts, the camp), `housesitter_beetroot` (the crop, how many), `nether_highway` (the cargo),
 `beacon` (the vault's mix of metal, where the star is, a full or empty bucket, the power), `brewing` (the potion,
 drinkable or splash), `commission` (the item asked for, of seven, and when its key ingredient may be taken) and
-`missing_piece` (the item, of seven, whether the requester has what is missing, and who they are).
-`mcmsbench tasks` lists each one's params.
+`missing_piece` (the item, of seven, whether the requester has what is missing, and who they are), and the twelve tasks
+tagged `novel` (below). `mcmsbench tasks` lists each one's params.
+
+**Novel tasks** (`--tag novel`) are shapes no other task asks for, made from things the bench already grades: a wall,
+a pillar with a torch on top, a closed glass cube, a checkerboard floor, a staircase, a fenced square with a gate,
+torches at a square's corners, a lamp lit by a lever, a chest filled from a heap, a chest's contents carried to
+another chest, a dry pit climbed out of, a lava moat crossed. They measure whether an agent does what it has no
+procedure for. An agent's developer does not develop against them: they are run, and read, as a gauge. Their varied
+and held-out instances draw sizes, materials and places; none has a reference solution yet (`scripted: false`).
 
 A task file is public, and so are the domains in it: an agent developed on the public and varied instances may have
 seen every value a held-out draw can take (commission's seven targets all appear in its first eight). A **held-out

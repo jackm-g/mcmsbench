@@ -1,0 +1,21 @@
+# A torch at each corner of a square on the ground, nothing between. Novel: four placements at given points, nothing
+# built round them. Params: the square's size and where.
+params:
+  s: {default: 6, range: [4, 9]}
+  corner:
+    default: {x: 9, z: 9}
+    choices: [{x: 9, z: 9}, {x: 14, z: 6}, {x: 6, z: 14}]
+prompt: >-
+  Put a torch on the ground at each corner of the ${s} by ${s} square whose corner is at x={ax}, y={ay}, z={az} (it
+  extends toward +x and +z): four torches, one on each corner.
+anchor: [${corner.x}, 0, ${corner.z}]
+inventory: {torch: 8}
+grader:
+  kind: schematic
+  at: [${corner.x}, 0, ${corner.z}]
+  legend: {T: torch}
+  layers: ${[['T' + '?' * (s - 2) + 'T'] + ['?' * s] * (s - 2) + ['T' + '?' * (s - 2) + 'T']]}
+max_turns: 6
+max_seconds: 240
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-a, building, schematic, novel]

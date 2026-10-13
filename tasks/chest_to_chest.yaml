@@ -1,0 +1,45 @@
+# What is in a chest some way off, brought back and put in the chest beside the start. Novel: a fetch between two
+# chests the prompt names, the far one out of sight at the start. Params: what it is, how far and which way.
+#
+# The world is seed 1 carved flat (96 across), the near chest 2 north of the start, the far one on the open ground.
+# Peaceful, the day held.
+params:
+  thing:
+    default: {id: iron_ingot, n: 12, words: iron ingots}
+    choices:
+      - {id: iron_ingot, n: 12, words: iron ingots}
+      - {id: emerald, n: 8, words: emeralds}
+      - {id: redstone, n: 20, words: redstone}
+      - {id: apple, n: 10, words: apples}
+  far:
+    default: {dx: 36, dz: 10, dist: 37, way: east}
+    choices:
+      - {dx: 36, dz: 10, dist: 37, way: east}
+      - {dx: -38, dz: -6, dist: 38, way: west}
+      - {dx: 8, dz: 40, dist: 41, way: south}
+      - {dx: -12, dz: -36, dist: 38, way: north}
+prompt: >-
+  Bring me the ${thing.words} from the chest about ${far.dist} blocks ${far.way} of here, and put all of them in the
+  chest beside you (at x={sx}, y={sy}, z={sz-2}).
+inventory: {}
+world: {type: survival, seeds: [1], radius: 48, border: 96, difficulty: peaceful, daylight: false}
+start: {time: 6000, weather: clear}
+movements: {can_dig: true, towers: true, scaffolding: [dirt, cobblestone]}
+setup:
+  # the land: flat grass over dirt over stone, nothing alive but the bot
+  - "fill {sx-48} {sy} {sz-48} {sx+47} {sy+30} {sz+47} minecraft:air"
+  - "fill {sx-48} {sy-20} {sz-48} {sx+47} {sy-5} {sz+47} minecraft:stone"
+  - "fill {sx-48} {sy-4} {sz-48} {sx+47} {sy-2} {sz+47} minecraft:dirt"
+  - "fill {sx-48} {sy-1} {sz-48} {sx+47} {sy-1} {sz+47} minecraft:grass_block"
+  - "kill @e[type=!minecraft:player,distance=..120,x={sx},y={sy},z={sz}]"
+  - "setblock {sx} {sy} {sz-2} minecraft:chest[facing=south]"
+  - "setblock {sx${off(far.dx)}} {sy} {sz${off(far.dz)}} minecraft:chest[facing=north]{{Items:[{{Slot:0b,id:\"minecraft:${thing.id}\",count:${thing.n}}}]}}"
+grader:
+  kind: milestones
+  required: delivered
+  steps:
+    - {name: delivered, weight: 4, check: {kind: container, at: "{sx} {sy} {sz-2}", item: "${thing.id}", count: ${thing.n}}}
+max_turns: 10
+max_seconds: 480
+scripted: false             # no reference solutions (evals/scripted) yet
+tags: [tier-c, containers, navigation, novel]
