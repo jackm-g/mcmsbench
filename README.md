@@ -16,7 +16,7 @@ No agent ships with the bench. You bring your own (see [Adding an agent](#adding
 
 | | |
 |---|---|
-| `tasks/*.yaml` | 78 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway, an item whose last ingredient only the requester may have, a room spawn-proofed, two dogs walked to an outpost |
+| `tasks/*.yaml` | 80 tasks: building, survival nights, combat, mining, redstone, rails, the Nether (a room, and a highway through the real one), farming, escapes, a friend in chat, a beacon and potions from scratch, a commission whose ingredient is taken partway, an item whose last ingredient only the requester may have, a room spawn-proofed, two dogs walked to an outpost, a trapped ruin looted, an omen cured with milk |
 | `profiles/*.yaml` | defaults a task inherits (`prod`: a hard, snowy server with spawn protection; `farmstead`) |
 | `infra/docker-compose.yml` | the arenas: a superflat server, and survival servers restored from `infra/worlds/<seed>.tar` |
 | `src/mcmsbench/` | the runner, the protocol, the observer, the graders, reports and the compare page |

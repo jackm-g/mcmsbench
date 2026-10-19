@@ -1,0 +1,67 @@
+# A desert ruin's chamber, with its trap: a stone pressure plate in the middle of the floor, on a block of TNT in a
+# 3x3 of them, four chests against the walls, and a creeper in the far corner. The loot asked for is four emeralds in
+# one of the chests (the others hold bones, rotten flesh, gold and a saddle). What it measures is reading a room:
+# the plate is in plain sight and the chests are round it, so the path across is the judgement, with a creeper to
+# keep clear of in a space six across. A player who mines the plate first has disarmed the trap, and that is allowed
+# (the plate is excluded from the intact check); the TNT is to stay where it is.
+#
+# Mined from a hardcore video (mining/iYzfeWaenlU, 10:12-10:46): a player going into a desert ruin he knew was
+# trapped, a creeper inside, taking his time, taking the loot, with a death to a creeper in a jungle ruin behind him.
+#
+# A flat plot: a sandstone mound 11x11 and 7 high at the plot's centre, the chamber inside it 7x7 and 4 high, a
+# doorway through its south wall at ground level, and the bot starting 10 south of the centre, facing it. The
+# chamber's floor is the mound's second layer; the TNT sits in that floor round the centre, the plate on the middle
+# one, so the whole trap is inside the observer's volume and the `intact` check reads it. The plot runs on Easy so the
+# summoned creeper stays (the arena's default is Peaceful); nothing else spawns (spawn_mobs is off). A creeper's
+# blast on Easy takes the TNT with it and the chests near it: the blast is read as the setup's blocks lost.
+#
+# Required: four emeralds carried at the end, the trap not sprung (the nine TNT and the four chests as they were),
+# no death. Scored: the bot inside the chamber at some point (the track), two chests opened (the counter).
+#
+# Params (variants.py): which corner's chest holds the emeralds (north-east in the public instance), and whether the
+# creeper is there (a marker stands in for it when not).
+params:
+  loot: {default: ne, choices: [ne, nw, se, sw]}
+  creeper: {default: 1, choices: [0, 1]}
+prompt: >-
+  There's a desert ruin just north of you, a sandstone mound with a way in on this side. Somebody told me there are
+  emeralds in one of the chests in there: get me four of them. The floor in the middle is rigged, a plate on TNT,
+  so mind where you step and don't set it off; leave the TNT where it is.
+inventory: {iron_sword: 1, iron_pickaxe: 1, torch: 8, bread: 4}
+world: {type: flat, difficulty: easy}
+start: {offset: [0, 10]}
+movements: {can_dig: true, towers: false, scaffolding: [sandstone]}
+setup:
+  # the mound, and the chamber hollowed out of it: floor at sy+1, air sy+2..sy+5, roof sy+6
+  - "fill {sx-5} {sy} {sz-5} {sx+5} {sy+6} {sz+5} minecraft:sandstone"
+  - "fill {sx-3} {sy+2} {sz-3} {sx+3} {sy+5} {sz+3} minecraft:air"
+  # the doorway through the south wall, two high
+  - "fill {sx} {sy+2} {sz+4} {sx} {sy+3} {sz+5} minecraft:air"
+  # the trap: 3x3 of TNT in the floor round the centre, the plate on the middle one
+  - "fill {sx-1} {sy+1} {sz-1} {sx+1} {sy+1} {sz+1} minecraft:tnt"
+  - "setblock {sx} {sy+2} {sz} minecraft:stone_pressure_plate"
+  # the four chests in the corners: the emeralds in one, the rest junk and a saddle
+  - "setblock {sx+3} {sy+2} {sz-3} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:${'emerald' if loot == 'ne' else 'bone'}\",count:4}},{{Slot:1b,id:\"minecraft:rotten_flesh\",count:3}}]}}"
+  - "setblock {sx-3} {sy+2} {sz-3} minecraft:chest[facing=east]{{Items:[{{Slot:0b,id:\"minecraft:${'emerald' if loot == 'nw' else 'bone'}\",count:4}},{{Slot:1b,id:\"minecraft:gold_ingot\",count:2}}]}}"
+  - "setblock {sx+3} {sy+2} {sz+3} minecraft:chest[facing=west]{{Items:[{{Slot:0b,id:\"minecraft:${'emerald' if loot == 'se' else 'bone'}\",count:4}},{{Slot:1b,id:\"minecraft:saddle\",count:1}}]}}"
+  - "setblock {sx-3} {sy+2} {sz+3} minecraft:chest[facing=east]{{Items:[{{Slot:0b,id:\"minecraft:${'emerald' if loot == 'sw' else 'bone'}\",count:4}},{{Slot:1b,id:\"minecraft:string\",count:5}}]}}"
+  # the creeper in the north-west corner (a marker stands there when the variant has none)
+  - "summon minecraft:${'creeper' if creeper else 'marker'} {sx-2} {sy+2} {sz-2} {{PersistenceRequired:1b,Tags:[\"ruin\"]}}"
+  - "tp {bot} {bx} {by} {bz}"
+stats: [deaths, damage_taken, "custom:open_chest", "killed:creeper"]
+grader:
+  kind: milestones
+  required: [emeralds, no_blast, alive]
+  steps:
+    - {name: in_the_room, weight: 1, check: {kind: position, target_rel: [0, 2, 0], tolerance: 3, y_tolerance: 2}}
+    - {name: chests_opened, weight: 1, check: {kind: stat, name: "custom:open_chest", min: 2}}
+    - {name: emeralds, weight: 4, check: {kind: inventory, item: emerald, count: 4}}
+    - name: no_blast
+      weight: 3
+      says: "the trap not set off: the nine TNT in the floor and the four chests still there (the plate may be taken up)"
+      check: {kind: intact, of: setup, exclude: [stone_pressure_plate]}
+    - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests
+max_turns: 15
+max_seconds: 420
+tags: [tier-c, exploration, hazard, containers, planning]

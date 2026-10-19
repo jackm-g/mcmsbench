@@ -1,0 +1,364 @@
+video: iYzfeWaenlU
+title: "100 Days - [Hardcore Minecraft]"
+channel: Luke TheNotable
+duration: 1801
+watched: 2026-10-13
+coverage: >-
+  Whole transcript (auto captions, 1000 lines, 29 chapters: one a day-range). Frames at 10:33 (the desert ruin's
+  sandstone chamber, pickaxe out), 16:48 (the canal: a lit stone cut with still water, from a boat), 18:26 (the
+  containment chamber: a glass cell in a stone room) and 24:22 (the enchanting room: shelves in an L against the
+  wall, the table beside them).
+notes: >-
+  A hundred days in thirty minutes, so most objectives get two sentences: stated, then done or failed. The
+  failures are stated plainly (the name tag used without an anvil, the creeper that exploded, the shelves "not
+  perfect yet", the horse that fell, the first bad omen). Wall-building and tree-clearing fill a third of the run and
+  are not minable at the bench's budget. The ocean, the treasure maps, the fishing and the horses are luck or an
+  agent's riding, not a judgement.
+candidates:
+  - id: desert_ruin_chest
+    status: drafted
+    task: desert_ruin_chest
+    source: {from: "10:12", to: "10:46", frames: ["0-10-33.jpg"]}
+    did: >-
+      Loot a desert ruin he knew was trapped: a creeper inside, the chest in the middle of the chamber over a
+      pressure plate on TNT. Took his time, took the loot, took the free TNT too.
+    why: >-
+      Looting a structure whose floor is the trap: the stone pressure plate in the chamber's centre sets off nine
+      TNT under it, which takes the chests, the loot and the bot. Server truth is the TNT still in place, the
+      chests still standing, and the emeralds in the bot's hands. The judgement is reading the room (the plate is in
+      plain sight, the chests are round it) and the path across it. The video's own history: a death to a creeper
+      in a jungle ruin; here, a creeper is in the chamber.
+    skills: [exploration, hazard, containers, planning]
+    failure_modes:
+      - "stepped on the plate and set off the TNT"
+      - "broke a chest to get at it instead of opening it"
+      - "fought the creeper next to the plate"
+    world: flat
+    setup: >-
+      A sandstone mound 11 wide and 7 high on the plot with the chamber inside it: a 7x7 room 4 high under the
+      mound, its floor sandstone, a stone pressure plate in the centre on a block of sandstone with nine TNT under
+      that, four chests against the walls holding bones, rotten flesh, a saddle, gold, and the emeralds in one of
+      them (the param), a 2-wide shaft from the mound's top down to the room, a creeper (PersistenceRequired)
+      summoned in the room's corner. The bot starts on the mound's top with an iron sword, a pickaxe and torches.
+    grader:
+      required: [emeralds, no_blast, alive]
+      steps:
+        - {name: in_the_room, weight: 1, check: {kind: position, target_rel: [0, 0], tolerance: 4, y_tolerance: 8}}
+        - {name: emeralds, weight: 4, check: {kind: inventory, item: emerald, count: 4}}
+        - name: no_blast
+          weight: 3
+          says: "the trap not set off: the nine TNT under the plate still there, the chests still standing"
+          check: {kind: intact, of: setup, exclude: [creeper]}
+        - {name: chests_opened, weight: 1, check: {kind: stat, name: "custom:open_chest", min: 2}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      loot: {default: ne, choices: [ne, nw, se, sw]}
+      creeper: {default: 1, choices: [0, 1]}
+    overlaps: [escape_box, cave_gauntlet, axolotl_fetch]
+    tier: tier-c
+    budget: {seconds: 420, turns: 15}
+    risks:
+      - "TNT set off by the plate is `intact`'s loss of the TNT and plate blocks, but also the chamber's walls: the exclude list should keep natural sand/sandstone out so partial damage still reads as the trap sprung"
+      - "a creeper in a closed room with no light: mobs do not despawn in a 7x7 room at distance 4 from the player; it must be PersistenceRequired and the plot must allow hostile mobs (the arena is peaceful: set the task's difficulty)"
+      - "`custom:open_chest` is a vanilla custom stat; confirm its name on the arena"
+    decision: "approved 2026-10-13; drafted as tasks/desert_ruin_chest.yaml: the TNT in the chamber's floor inside the observer's volume, the plate excluded from intact (disarming allowed), Easy for the creeper"
+
+  - id: dig_the_canal
+    status: candidate
+    source: {from: "15:37", to: "17:02", frames: ["0-16-48.jpg"]}
+    did: >-
+      Cut a canal from the river by the house through a mountain to the ocean so a boat can go the whole way: one
+      complete stretch of water, lit, with a shack at each end. Timed the trip afterwards: five minutes by boat.
+    why: >-
+      A water path for a boat is checkable from the blocks: the `liquid_path` grader follows connected water from
+      the home pool to the far pool. The judgements are the trench (two wide, dug through stone, no gap), the water
+      itself (a boat rides still water, so sources must be laid end to end with the two-bucket infinite source,
+      not one bucket's flow), and then actually boating it (the `boated` counter).
+    skills: [digging, water, planning, navigation]
+    failure_modes:
+      - "a gap of one block in the trench leaves two bodies of water"
+      - "flowing water from one source: the boat is pushed back and the far end is dry"
+      - "the trench dug at the wrong level, so water falls and does not join"
+    world: flat
+    setup: >-
+      Two 5x5 pools of water one block deep at opposite sides of the plot, 22 blocks apart, a stone ridge 5 high and
+      8 thick across the middle, a chest at the home pool with two water buckets, an iron pickaxe, an oak boat and
+      16 torches. The prompt asks for a boat to reach the far pool from the home pool on water the whole way, and
+      for the bot to make the trip.
+    grader:
+      required: [joined, boated, alive]
+      steps:
+        - {name: trench, weight: 1, check: {kind: dug, block: stone, count: 30}}
+        - name: joined
+          weight: 4
+          says: "one connected body of water from the home pool to the far pool"
+          check: {kind: liquid_path, liquid: water, from: [6, 0, 16], to: [26, 0, 16]}
+        - {name: boated, weight: 2, check: {kind: stat, name: boated, min: 15}}
+        - {name: arrived, weight: 1, check: {kind: position, target_rel: [10, 0], tolerance: 5}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      ridge: {default: 5, choices: [3, 5, 7]}
+      gap: {default: 22, choices: [18, 22, 26]}
+    overlaps: [lava_fall, water_drop, ravine_crossing]
+    tier: tier-c
+    budget: {seconds: 600, turns: 25}
+    risks:
+      - "`liquid_path` follows connected liquid including flowing water; a canal of flowing water (one source) passes the path check but a boat cannot ride up it, so `boated` is what tells the two apart: confirm the boated counter grows in a boat on still water in a 1-wide channel"
+      - "boats and mineflayer: an agent has to mount and steer; nether_highway and island_delivery already ask that, so the capability exists"
+    decision: ""
+
+  - id: level_thirty_table
+    status: candidate
+    source: {from: "21:25", to: "24:30", frames: ["0-24-22.jpg"]}
+    did: >-
+      Make an enchanting room: sugar cane for paper, obsidian from the lava in the old mine (enough for a portal
+      too), diamonds from a mineshaft, leather from his cows, bookshelves round the table. Said it was "not perfect
+      yet": the shelves against the wall in an L, not the ring the table needs.
+    why: >-
+      A late-game chain whose last step is a geometry rule the game does not explain: an enchanting table reaches
+      level 30 with 15 bookshelves in the two-high ring one block out from it, with air between. Everything else is
+      gathering and crafting from parts around the base (the shape of beacon). Graded from the snapshot: the table
+      and its ring (a new `enchanting_power` grader, like `spawnable`: vanilla's rule over the blocks), the
+      counters for obsidian mined and shelves crafted; no death.
+    skills: [crafting, smelting, planning, late_game, containers]
+    failure_modes:
+      - "shelves placed against the table or in an L: no power"
+      - "obsidian mined with an iron pickaxe: nothing dropped"
+      - "the books spent on something else; fewer than 15 shelves"
+    world: survival-1
+    setup: >-
+      Seed 1's spawn with beacon's yard and house: a chest with 2 diamonds, 45 books (or 45 leather and 135 paper
+      in a variant), 96 oak planks, a diamond pickaxe and an iron one; a water bucket; the lava pool east; a
+      crafting table. The prompt: get an enchanting table in the yard up to level 30. No shelves given.
+    grader:
+      required: [full_power, alive]
+      steps:
+        - {name: obsidian, weight: 1, check: {kind: stat, name: "mined:obsidian", min: 4}}
+        - {name: table,    weight: 2, check: {kind: stat, name: "crafted:enchanting_table", min: 1}}
+        - {name: shelves,  weight: 1, check: {kind: stat, name: "crafted:bookshelf", min: 15}}
+        - name: full_power
+          weight: 5
+          says: "an enchanting table in the yard with 15 bookshelves in its ring (one block out, two high, air between): level 30"
+          check: {kind: blocks, block: bookshelf, min: 15}
+        - {name: house_intact, weight: 1, check: {kind: intact, of: setup, exclude: [furnace, crafting_table]}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      books: {default: {ready: 45, leather: 0, paper: 0}, choices: [{ready: 45, leather: 0, paper: 0}, {ready: 0, leather: 45, paper: 135}, {ready: 30, leather: 15, paper: 45}]}
+      yard: {default: beacon, choices: [beacon, bare]}
+    overlaps: [commission, beacon, obsidian_expedition]
+    tier: tier-d
+    budget: {seconds: 600, turns: 30}
+    risks:
+      - "needs a new grader kind `enchanting_power`: from the after snapshot, the table nearest the anchor, the 32 ring positions and their 16 gap cells; the `blocks` step is a placeholder"
+      - "commission already makes an enchanting table from parts; this task's novelty is the ring, so the parts should be mostly given and the prompt should ask for level 30, not for a table"
+    decision: ""
+
+  - id: trap_the_creeper
+    status: candidate
+    source: {from: "18:05", to: "21:20", frames: ["0-18-26.jpg"]}
+    did: >-
+      Build a containment chamber under the house, catch a creeper in it at night with a pressure-plate gate and a
+      water bucket, and name-tag it so it never despawns. The first creeper exploded because the name tag had not
+      been named at an anvil; the second was named and kept.
+    why: >-
+      Catching a creeper alive is the opposite of fighting one: distance, a funnel, water to push it, and a glass
+      cell. The trap the video shows is the game's own: a name tag does nothing until it is renamed at an anvil, so
+      the creature despawns (or here, the bench's check finds no CustomName). Server truth: a creeper with a custom
+      name inside the cell at the end, the cell intact, no creeper killed.
+    skills: [mobs, hazard, redstone, crafting]
+    failure_modes:
+      - "the creeper blew up next to the player"
+      - "the name tag used unnamed: no name on the creeper"
+      - "the cell left open or broken; the creeper walked out"
+    world: flat
+    setup: >-
+      A stone room with a 1x1 glass cell open on one side with a gap for a fence gate, a chest with a name tag, an
+      anvil, a water bucket, and 3 iron ingots; a creeper (PersistenceRequired) summoned 10 blocks off at night
+      level light. The prompt: get the creeper into the cell alive and name it so it stays.
+    grader:
+      required: [named_in_cell, alive]
+      steps:
+        - name: in_cell
+          weight: 3
+          check: {kind: functional, steps: [{assert: "execute if entity @e[type=minecraft:creeper,x={sx+5},y={sy},z={sz},dx=0,dy=1,dz=0]"}]}
+        - name: named_in_cell
+          weight: 3
+          check: {kind: functional, steps: [{assert: "execute if entity @e[type=minecraft:creeper,x={sx+5},y={sy},z={sz},dx=0,dy=1,dz=0,nbt={{CustomName:'\"Elbaton\"'}}]"}]}
+        - {name: anvil_used, weight: 1, check: {kind: stat, name: "custom:interact_with_anvil", min: 1}}
+        - {name: not_killed, weight: 1, hold: true, check: {kind: stat, name: "killed:creeper", max: 0}}
+        - {name: cell_intact, weight: 1, check: {kind: intact, of: setup}}
+        - {name: alive, weight: 2, hold: true, check: {kind: survived}}
+    params:
+      name: {default: Elbaton, choices: [Elbaton, Tors, Boomer]}
+      cell: {default: 5, choices: [5, -6]}
+    overlaps: [fight_zombies, make_safe]   # and the ledgered trap_the_piglin (mining/84GUEi-qrG0)
+    tier: tier-c
+    budget: {seconds: 480, turns: 20}
+    risks:
+      - "a near twin of trap_the_piglin (same video family, same shape: lure a mob into a cell); keep one, or make this one the anvil-and-name-tag task and the piglin the gold-armour one"
+      - "a creeper that explodes takes the cell with it: the blast is a world change the grader sees (cell_intact), but the creeper is gone and `killed:creeper` stays 0: that is the right verdict, a fail on in_cell"
+      - "the CustomName NBT shape is a JSON text in 1.20.5+: confirm the quoting on the arena"
+    decision: ""
+
+  - id: cure_bad_omen
+    status: drafted
+    task: cure_bad_omen
+    source: {from: "05:26", to: "05:55"}
+    did: >-
+      Killed the raider captain from a safe corner of the wall and got the Bad Omen effect; in the morning, found a
+      cow, milked it with a bucket and drank the milk to clear it before it could start a raid.
+    why: >-
+      A status effect with a specific cure: milk clears every effect, and a bucket, a cow and a drink are three steps
+      an agent has to know belong together. Cheap, server-truth (the effect gone from the player, the milk bucket
+      used), and the first effect-based task in the bench. Variants give a different long effect, or no bucket (three
+      iron in the chest to craft one), or the cow further off.
+    skills: [survival, crafting, animals, knowledge]
+    failure_modes:
+      - "killed the cow for beef"
+      - "no bucket made; waited for the effect to wear off (it is 100 minutes)"
+      - "drank the milk with nothing to clear (or the wrong order)"
+    world: flat
+    setup: >-
+      A flat plot, the bot given Bad Omen for 6000 seconds (`effect give`), a cow (PersistenceRequired) 12 blocks
+      off, a chest with a bucket (or 3 iron ingots and a crafting table, in a variant). The prompt: "I've got that
+      bad omen thing on me from the raider, get rid of it before I go anywhere near the village."
+    grader:
+      required: [cleared, alive]
+      steps:
+        - {name: milked,  weight: 1, check: {kind: stat, name: "used:bucket", min: 1}}
+        - {name: drank,   weight: 2, check: {kind: stat, name: "used:milk_bucket", min: 1}}
+        - name: cleared
+          weight: 4
+          says: "the Bad Omen effect gone from you at the end"
+          check: {kind: functional, steps: [{assert: "execute unless entity @a[name={bot},nbt={{active_effects:[{{id:\"minecraft:bad_omen\"}}]}}]"}]}
+        - {name: cow_alive, weight: 1, hold: true, check: {kind: stat, name: "killed:cow", max: 0}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      effect: {default: {id: bad_omen, words: "that bad omen thing"}, choices: [{id: bad_omen, words: "that bad omen thing"}, {id: mining_fatigue, words: "that mining fatigue from the monument"}]}
+      bucket: {default: bucket, choices: [bucket, iron_ingot]}
+    overlaps: [tundra_provision, provision_at_base]
+    tier: tier-b
+    budget: {seconds: 300, turns: 10}
+    risks:
+      - "`execute unless entity @a[...,nbt=...]` passes when the player is offline too: the grader runs after the agent logs out, so the check must run while a player is on (the stand-in logs back in for the final reads: confirm the order) or read `data get entity` from the player file"
+      - "the effect must survive the runner's `effect clear` in prepare_player: give it in setup, which runs after"
+    decision: "approved 2026-10-13; drafted as tasks/cure_bad_omen.yaml: a gated event (`execute as @a[name=bot] unless entity @s[nbt=...]`) watches for the cure while the player is on; the `event` grader reads the record"
+
+  - id: trade_up_the_farmer
+    status: candidate
+    source: {from: "26:33", to: "26:51"}
+    did: >-
+      Grind a villager's trades with his farm produce until he is master level and sells golden carrots; notes it
+      only works with a big farm behind it and that the other villagers are too exposed to zombies to level.
+    why: >-
+      Trading is a loop with a goal the server can read: the villager's level in its NBT. The judgement is which
+      produce the farmer buys (its first trades are random among wheat, potato, carrot and beetroot, so the chest
+      holds all four) and how many trades a level takes. Server truth: VillagerData level and the trade counter.
+    skills: [trading, planning, containers]
+    failure_modes:
+      - "traded the wrong crop (not in the villager's offers)"
+      - "a trade locked after its uses; waited instead of switching"
+      - "the villager hurt or killed"
+    world: flat
+    setup: >-
+      A stall: a villager (farmer, novice, PersistenceRequired, NoAI off) at a composter in a fenced 3x3; a chest
+      with 64 of each of wheat, carrot, potato and beetroot. The prompt: get the farmer to Apprentice (level 2).
+    grader:
+      required: [levelled, alive]
+      steps:
+        - {name: traded, weight: 1, check: {kind: stat, name: "custom:traded_with_villager", min: 3}}
+        - name: levelled
+          weight: 4
+          says: "the farmer at Apprentice or above at the end"
+          check: {kind: functional, steps: [{assert: "execute if entity @e[type=minecraft:villager,tag=farmer,nbt={{VillagerData:{{level:2}}}}]"}, {assert: "execute if entity @e[type=minecraft:villager,tag=farmer]"}]}
+        - {name: unharmed, weight: 1, hold: true, check: {kind: stat, name: "killed:villager", max: 0}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      profession: {default: {id: farmer, buys: "wheat, carrots, potatoes and beetroot"}, choices: [{id: farmer, buys: "wheat, carrots, potatoes and beetroot"}, {id: fisherman, buys: "string and coal"}, {id: shepherd, buys: "wool and dye"}]}
+      level: {default: 2, choices: [2, 3]}
+    overlaps: [piglin_barter, missing_piece, helping_pat]
+    tier: tier-c
+    budget: {seconds: 420, turns: 15}
+    risks:
+      - "`level:2` in nbt matches level 2 exactly; level 3 needs `level:3`, so the assert is per param, or the task reads the level into a score"
+      - "the villager's offers are rolled when it first gets its profession: the task should summon it with its profession set and let the offers roll on the arena, then the chest covers every possible buy"
+      - "villager trading from mineflayer is a known capability (villager plugin); not yet in any task, so agents may lack it"
+    decision: ""
+
+  - id: bonemeal_the_carrots
+    status: candidate
+    source: {from: "11:19", to: "11:26"}
+    did: >-
+      Came home with eight carrots and the bone meal from the ruin, and got "those rookie numbers up quick": grew
+      and replanted until the farm was full.
+    why: >-
+      Multiplying a seed stock by growing and replanting is a loop with a counting judgement (each harvested carrot
+      gives one to four; bone meal is the only growth on a frozen plot). Server truth: carrots planted on wet
+      farmland at the end (`hydrated`), bone meal used. Small, but a shape the farm tasks lack: scaling up from
+      little.
+    skills: [farming, planning]
+    failure_modes:
+      - "ate the carrots"
+      - "planted all eight and waited; no growth without bone meal"
+      - "bone meal spent on grass"
+    world: flat
+    setup: >-
+      A 9x9 tilled, watered field; the bot carries 8 carrots and 24 bone meal. The prompt: fill the field with carrots.
+    grader:
+      required: [field, alive]
+      steps:
+        - {name: bonemeal, weight: 1, check: {kind: stat, name: "used:bone_meal", min: 8}}
+        - {name: field, weight: 4, check: {kind: hydrated, crop: carrots, min: 60}}
+        - {name: alive, weight: 1, hold: true, check: {kind: survived}}
+    params:
+      seeds: {default: 8, choices: [4, 8, 12]}
+      meal: {default: 24, choices: [16, 24, 32]}
+    overlaps: [housesitter_beetroot, farm_in_snow, wheat_farm]
+    tier: tier-b
+    budget: {seconds: 420, turns: 15}
+    risks:
+      - "housesitter_beetroot already plants from a small stock; the difference is the bone-meal multiplication, which the prompt should make the point of"
+    decision: ""
+
+  - id: buried_treasure
+    status: rejected
+    source: {from: "17:14", to: "17:36"}
+    did: >-
+      Follow a treasure map from a shipwreck to the buried chest, carefully (drowned doing this once before).
+    why: >-
+      An agent cannot read a map item's image; the location would have to be told, which removes the task.
+    world: survival-1
+    setup: none
+    grader: {required: [], steps: []}
+    overlaps: [axolotl_fetch]
+    tier: tier-c
+    decision: "rejected: map reading is not in the protocol; the dig itself is goto_point"
+
+  - id: fish_for_the_saddle
+    status: rejected
+    source: {from: "18:49", to: "19:20"}
+    did: >-
+      Fish for days for a name tag and a saddle.
+    why: >-
+      Treasure-catch odds make the outcome luck within any budget.
+    world: flat
+    setup: none
+    grader: {required: [], steps: []}
+    overlaps: [farmstead]
+    tier: tier-b
+    decision: "rejected: drop rate dominates"
+
+  - id: horse_road
+    status: rejected
+    source: {from: "25:33", to: "27:20"}
+    did: >-
+      Tame a horse with the saddle, cut a horse track through the mountain to the village; lost one horse to a fall.
+    why: >-
+      Riding is an agent capability the protocol does not promise, and the track is a tunnel task (overlaps
+      mine_shaft) once the horse is taken out.
+    world: survival-1
+    setup: none
+    grader: {required: [], steps: []}
+    overlaps: [mine_shaft, minecart_ride]
+    tier: tier-c
+    decision: "rejected: riding; the tunnel alone is mine_shaft"

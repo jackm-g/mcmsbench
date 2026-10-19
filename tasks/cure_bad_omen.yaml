@@ -1,0 +1,61 @@
+# A status effect with one cure: the bot starts with Bad Omen (the raid trigger, 100 minutes long), a cow grazes
+# off to the east, and the chest holds a bucket (or three iron, in a variant, with the crafting table beside it).
+# Milk clears every effect; a bucket on a cow is milk. What it measures is knowing the three steps belong together,
+# and not killing the cow for beef on the way. The variant's effect is Mining Fatigue (the monument's), as long.
+#
+# Mined from a hardcore video (mining/iYzfeWaenlU, 05:26-05:55): a player who killed a raider captain from a safe
+# corner of his wall, got the omen, and in the morning found a cow and drank the milk before it could start a raid.
+#
+# A flat plot, the day frozen. The effect is given in setup, which runs after the runner's `effect clear` and the
+# hunger drain. Whether it is gone cannot be asked of the server at grade time (the player is offline by then), so a
+# gated event watches for it during the trial: `execute as @a[name={bot}] unless entity @s[nbt=...]`, which fails
+# while nobody of that name is on (the hand-off gap) and passes once the player is on without the effect; the
+# `event` grader reads the bench's record of it firing.
+#
+# Required: the effect gone (the event fired), no death. Scored: the bucket used on the cow and the milk drunk (the
+# counters), the cow left alive.
+#
+# Params (variants.py): the effect (Bad Omen, or Mining Fatigue) and what the chest holds (a bucket, or iron for one).
+params:
+  effect:
+    default: {id: bad_omen, words: "that bad omen thing on me from the raider captain"}
+    choices:
+      - {id: bad_omen, words: "that bad omen thing on me from the raider captain"}
+      - {id: mining_fatigue, words: "that mining fatigue on me from the monument"}
+  bucket:
+    default: {item: bucket, n: 1, words: "a bucket"}
+    choices:
+      - {item: bucket, n: 1, words: "a bucket"}
+      - {item: iron_ingot, n: 3, words: "some iron"}
+prompt: >-
+  I've got ${effect.words}, and I'm not going anywhere near the village with it. Get rid of it for me. There's a cow
+  grazing off to the east and ${bucket.words} in the chest here; don't hurt the cow, she's the only one I've got.
+inventory: {bread: 2}
+world: {type: flat}
+movements: {can_dig: false, towers: false, scaffolding: []}
+setup:
+  - "effect give {bot} minecraft:${effect.id} 6000 0 true"
+  - "setblock {sx+2} {sy} {sz-2} minecraft:chest[facing=south]{{Items:[{{Slot:0b,id:\"minecraft:${bucket.item}\",count:${bucket.n}}}]}}"
+  - "setblock {sx+3} {sy} {sz-2} minecraft:crafting_table"
+  - "summon minecraft:cow {sx+12} {sy} {sz-3} {{PersistenceRequired:1b,Tags:[\"cow\"]}}"
+events:
+  - at: 0      # cured: the player on, without the effect
+    when: "execute as @a[name={bot}] unless entity @s[nbt={{active_effects:[{{id:\"minecraft:${effect.id}\"}}]}}]"
+    run: "tag {bot} add cured"
+stats: [deaths, damage_taken, "used:bucket", "used:milk_bucket", "killed:cow"]
+grader:
+  kind: milestones
+  required: [cleared, alive]
+  steps:
+    - {name: milked, weight: 1, check: {kind: stat, name: "used:bucket", min: 1}}
+    - {name: drank,  weight: 2, check: {kind: stat, name: "used:milk_bucket", min: 1}}
+    - name: cleared
+      weight: 4
+      says: "the effect gone from you (the bench watches for it during the trial)"
+      check: {kind: event, run: "tag {bot} add cured"}
+    - {name: cow_alive, weight: 1, hold: true, check: {kind: stat, name: "killed:cow", max: 0}}
+    - {name: alive,     weight: 1, hold: true, check: {kind: survived}}
+scripted: false   # no reference solutions yet: validated by the unit tests
+max_turns: 10
+max_seconds: 300
+tags: [tier-b, survival, animals, crafting, knowledge]
